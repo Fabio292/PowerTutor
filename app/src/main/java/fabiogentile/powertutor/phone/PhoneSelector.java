@@ -51,6 +51,8 @@ public class PhoneSelector {
     public static final int PHONE_DREAM = 1; /* G1 */
     public static final int PHONE_SAPPHIRE = 2; /* G2 */
     public static final int PHONE_PASSION = 3; /* Nexus One */
+    public static final int PHONE_HAMMERHEAD = 4; /* Nexus 5 */
+
     /* A hard-coded list of phones that have OLED screens. */
     public static final String[] OLED_PHONES = {
             "bravo",
@@ -64,6 +66,7 @@ public class PhoneSelector {
             "SGH-T959",
             "desirec",
     };
+
     private static final String TAG = "PhoneSelector";
 
 
@@ -78,8 +81,8 @@ public class PhoneSelector {
     }
 
     public static boolean hasOled() {
-        for (int i = 0; i < OLED_PHONES.length; i++) {
-            if (Build.DEVICE.equals(OLED_PHONES[i])) {
+        for (String OLED_PHONE : OLED_PHONES) {
+            if (Build.DEVICE.equals(OLED_PHONE)) {
                 return true;
             }
         }
@@ -87,9 +90,13 @@ public class PhoneSelector {
     }
 
     public static int getPhoneType() {
+        Log.i(TAG, "getPhoneType: " + Build.DEVICE);
+
         if (Build.DEVICE.startsWith("dream")) return PHONE_DREAM;
         if (Build.DEVICE.startsWith("sapphire")) return PHONE_SAPPHIRE;
         if (Build.DEVICE.startsWith("passion")) return PHONE_PASSION;
+        if (Build.DEVICE.startsWith("hammerhead")) return PHONE_HAMMERHEAD;
+
         return PHONE_UNKNOWN;
     }
 
@@ -101,6 +108,8 @@ public class PhoneSelector {
                 return new SapphireConstants(context);
             case PHONE_PASSION:
                 return new PassionConstants(context);
+            case PHONE_HAMMERHEAD:
+                return new HammerheadConstants(context);
             default:
                 boolean oled = hasOled();
                 Log.w(TAG, "Phone type not recognized (" + Build.DEVICE + "), using " +
@@ -118,6 +127,8 @@ public class PhoneSelector {
                 return new SapphirePowerCalculator(context);
             case PHONE_PASSION:
                 return new PassionPowerCalculator(context);
+            case PHONE_HAMMERHEAD:
+                return new HammerheadPowerCalculator(context);
             default:
                 boolean oled = hasOled();
                 Log.w(TAG, "Phone type not recognized (" + Build.DEVICE + "), using " +
