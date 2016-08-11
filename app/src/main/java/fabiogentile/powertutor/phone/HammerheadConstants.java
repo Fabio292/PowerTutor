@@ -81,6 +81,11 @@ public class HammerheadConstants implements PhoneConstants {
         return 2300;
     }
 
+    @Override
+    public String backlightFile() {
+        return "/sys/class/leds/lcd-backlight/brightness";
+    }
+
     //<editor-fold desc="LCD">
     public double lcdBrightness() {
         //screen.full / 255

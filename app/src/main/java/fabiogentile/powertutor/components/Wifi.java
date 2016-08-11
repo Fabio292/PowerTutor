@@ -52,6 +52,8 @@ public class Wifi extends PowerComponent {
     private String transBytesFile;
     private String readBytesFile;
     private File uidStatsFolder;
+    private String BASE_WIFI_DIRECTORY = "/sys/class/net/"; // TODO: 11/08/16 spostare nella classe specifica del device
+    
 
     public Wifi(Context context, PhoneConstants phoneConstants) {
         this.phoneConstants = phoneConstants;
@@ -68,14 +70,12 @@ public class Wifi extends PowerComponent {
         wifiState = new WifiStateKeeper(phoneConstants.wifiHighLowTransition(),
                 phoneConstants.wifiLowHighTransition());
         uidStates = new SparseArray<WifiStateKeeper>();
-        transPacketsFile = "/sys/devices/virtual/net/" +
-                interfaceName + "/statistics/tx_packets";
-        readPacketsFile = "/sys/devices/virtual/net/" +
-                interfaceName + "/statistics/rx_packets";
-        transBytesFile = "/sys/devices/virtual/net/" +
-                interfaceName + "/statistics/tx_bytes";
-        readBytesFile = "/sys/devices/virtual/net/" +
-                interfaceName + "/statistics/rx_bytes";
+
+        //Stats file
+        transPacketsFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/tx_packets";
+        readPacketsFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/rx_packets";
+        transBytesFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/tx_bytes";
+        readBytesFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/rx_bytes";
         uidStatsFolder = new File("/proc/uid_stat");
     }
 

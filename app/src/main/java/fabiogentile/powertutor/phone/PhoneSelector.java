@@ -25,8 +25,6 @@ import android.util.Log;
 
 import java.util.List;
 
-import fabiogentile.powertutor.components.Audio;
-import fabiogentile.powertutor.components.Audio.AudioData;
 import fabiogentile.powertutor.components.CPU;
 import fabiogentile.powertutor.components.CPU.CpuData;
 import fabiogentile.powertutor.components.GPS;
@@ -36,14 +34,9 @@ import fabiogentile.powertutor.components.LCD.LcdData;
 import fabiogentile.powertutor.components.OLED;
 import fabiogentile.powertutor.components.OLED.OledData;
 import fabiogentile.powertutor.components.PowerComponent;
-import fabiogentile.powertutor.components.Sensors;
-import fabiogentile.powertutor.components.Sensors.SensorData;
-import fabiogentile.powertutor.components.Threeg;
-import fabiogentile.powertutor.components.Threeg.ThreegData;
 import fabiogentile.powertutor.components.Wifi;
 import fabiogentile.powertutor.components.Wifi.WifiData;
 import fabiogentile.powertutor.service.PowerData;
-import fabiogentile.powertutor.util.NotificationService;
 import fabiogentile.powertutor.util.SystemInfo;
 
 public class PhoneSelector {
@@ -138,16 +131,14 @@ public class PhoneSelector {
         }
     }
 
-    public static void generateComponents(Context context,
-                                          List<PowerComponent> components,
-                                          List<PowerFunction> functions) {
+    public static void generateComponents(Context context, List<PowerComponent> components, List<PowerFunction> functions) {
         final PhoneConstants constants = getConstants(context);
         final PhonePowerCalculator calculator = getCalculator(context);
 
         //TODO: What about bluetooth?
         //TODO: LED light on the Nexus
 
-    /* Add display component. */
+        /* Add display component. */
         if (hasOled()) {
             components.add(new OLED(context, constants));
             functions.add(new PowerFunction() {
@@ -156,7 +147,7 @@ public class PhoneSelector {
                 }
             });
         } else {
-            components.add(new LCD(context));
+            components.add(new LCD(context, constants));
             functions.add(new PowerFunction() {
                 public double calculate(PowerData data) {
                     return calculator.getLcdPower((LcdData) data);
@@ -164,7 +155,7 @@ public class PhoneSelector {
             });
         }
 
-    /* Add CPU component. */
+        /* Add CPU component. */
         components.add(new CPU(constants));
         functions.add(new PowerFunction() {
             public double calculate(PowerData data) {
@@ -172,7 +163,7 @@ public class PhoneSelector {
             }
         });
 
-    /* Add Wifi component. */
+        /* Add Wifi component. */
         String wifiInterface =
                 SystemInfo.getInstance().getProperty("wifi.interface");
         if (wifiInterface != null && wifiInterface.length() != 0) {
@@ -184,17 +175,17 @@ public class PhoneSelector {
             });
         }
 
-    /* Add 3G component. */
-        if (constants.threegInterface().length() != 0) {
-            components.add(new Threeg(context, constants));
-            functions.add(new PowerFunction() {
-                public double calculate(PowerData data) {
-                    return calculator.getThreeGPower((ThreegData) data);
-                }
-            });
-        }
+//        /* Add 3G component. */
+//        if (constants.threegInterface().length() != 0) {
+//            components.add(new Threeg(context, constants));
+//            functions.add(new PowerFunction() {
+//                public double calculate(PowerData data) {
+//                    return calculator.getThreeGPower((ThreegData) data);
+//                }
+//            });
+//        }
 
-    /* Add GPS component. */
+        /* Add GPS component. */
         components.add(new GPS(context, constants));
         functions.add(new PowerFunction() {
             public double calculate(PowerData data) {
@@ -202,22 +193,22 @@ public class PhoneSelector {
             }
         });
 
-    /* Add Audio component. */
-        components.add(new Audio(context));
-        functions.add(new PowerFunction() {
-            public double calculate(PowerData data) {
-                return calculator.getAudioPower((AudioData) data);
-            }
-        });
-
-    /* Add Sensors component if avaialble. */
-        if (NotificationService.available()) {
-            components.add(new Sensors(context));
-            functions.add(new PowerFunction() {
-                public double calculate(PowerData data) {
-                    return calculator.getSensorPower((SensorData) data);
-                }
-            });
-        }
+//        /* Add Audio component. */
+//        components.add(new Audio(context));
+//        functions.add(new PowerFunction() {
+//            public double calculate(PowerData data) {
+//                return calculator.getAudioPower((AudioData) data);
+//            }
+//        });
+//
+//        /* Add Sensors component if avaialble. */
+//        if (NotificationService.available()) {
+//            components.add(new Sensors(context));
+//            functions.add(new PowerFunction() {
+//                public double calculate(PowerData data) {
+//                    return calculator.getSensorPower((SensorData) data);
+//                }
+//            });
+//        }
     }
 }

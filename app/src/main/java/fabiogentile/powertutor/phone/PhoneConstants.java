@@ -28,6 +28,11 @@ public interface PhoneConstants {
      */
     double maxPower();
 
+    /**
+     * @return
+     */
+    String backlightFile();
+
     /* Gives the coefficient to multiply the LCD display's brightness by to
      * calculate power usage.
      */

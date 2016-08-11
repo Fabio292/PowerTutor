@@ -31,6 +31,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
+import fabiogentile.powertutor.phone.PhoneConstants;
 import fabiogentile.powertutor.service.IterationData;
 import fabiogentile.powertutor.service.PowerData;
 import fabiogentile.powertutor.util.ForegroundDetector;
@@ -44,13 +45,15 @@ public class LCD extends PowerComponent {
     };
     private final String TAG = "LCD";
     private Context context;
+    private PhoneConstants constants;
     private ForegroundDetector foregroundDetector;
     private BroadcastReceiver broadcastReceiver;
     private boolean screenOn;
     private String brightnessFile;
 
-    public LCD(Context context) {
+    public LCD(Context context, PhoneConstants constants) {
         this.context = context;
+        this.constants = constants;
         screenOn = true;
 
         if (context == null) {

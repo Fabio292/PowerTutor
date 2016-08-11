@@ -161,17 +161,17 @@ public class PowerEstimator implements Runnable {
 
         double lastCurrent = -1;
 
-    /* Indefinitely collect data on each of the power components. */
+        /* Indefinitely collect data on each of the power components. */
         boolean firstLogIteration = true;
         for (long iter = -1; !Thread.interrupted(); ) {
             long curTime = SystemClock.elapsedRealtime();
-      /* Compute the next iteration that we can make the ending of.  We wait
-         for the end of the iteration so that the components had a chance to
-         collect data already.
-       */
+          /* Compute the next iteration that we can make the ending of.  We wait
+             for the end of the iteration so that the components had a chance to
+             collect data already.
+           */
             iter = Math.max(iter + 1,
                     (curTime - beginTime) / ITERATION_INTERVAL);
-      /* Sleep until the next iteration completes. */
+            /* Sleep until the next iteration completes. */
             try {
                 Thread.currentThread().sleep(
                         beginTime + (iter + 1) * ITERATION_INTERVAL - curTime);
@@ -185,8 +185,8 @@ public class PowerEstimator implements Runnable {
                 IterationData data = comp.getData(iter);
                 dataTemp[i] = data;
                 if (data == null) {
-          /* No data present for this timestamp.  No power charged.
-           */
+                  /* No data present for this timestamp.  No power charged.
+                   */
                     continue;
                 }
 
@@ -209,7 +209,7 @@ public class PowerEstimator implements Runnable {
                 }
             }
 
-      /* Update the uid set. */
+            /* Update the uid set. */
             synchronized (fileWriteLock) {
                 synchronized (uidAppIds) {
                     for (int i = 0; i < components; i++) {
@@ -223,9 +223,9 @@ public class PowerEstimator implements Runnable {
                             if (uid < SystemInfo.AID_APP) {
                                 uidAppIds.put(uid, null);
                             } else {
-              /* We only want to update app names when logging so the associcate
-               * message gets written.
-               */
+                              /* We only want to update app names when logging so the associcate
+                               * message gets written.
+                               */
                                 String appId = uidAppIds.get(uid);
                                 String newAppId = sysInfo.getAppId(uid, pm);
                                 if (!firstLogIteration && logStream != null &&
@@ -247,7 +247,7 @@ public class PowerEstimator implements Runnable {
                 lastWrittenIteration = iter;
             }
 
-      /* Update the icon display every 15 iterations. */
+            /* Update the icon display every 15 iterations. */
             if (iter % 15 == 14) {
                 final double POLY_WEIGHT = 0.02;
                 int count = 0;
@@ -273,7 +273,7 @@ public class PowerEstimator implements Runnable {
                         avgPower);
             }
 
-      /* Update the widget. */
+            /* Update the widget. */
             if (iter % 60 == 0) {
                 PowerWidget.updateWidget(context, this);
             }
@@ -319,9 +319,9 @@ public class PowerEstimator implements Runnable {
                 }
             }
 
-      /* Let's only grab memory information every 10 seconds to try to keep log
-       * file size down and the notice_data table size down.
-       */
+          /* Let's only grab memory information every 10 seconds to try to keep log
+           * file size down and the notice_data table size down.
+           */
             boolean hasMem = false;
             if (iter % 10 == 0) {
                 hasMem = sysInfo.getMemInfo(memInfo);
@@ -385,9 +385,10 @@ public class PowerEstimator implements Runnable {
                 }
 
                 if (iter % 15 == 0 && prefs.getBoolean("sendPermission", true)) {
-          /* Allow for LogUploader to decide if the log needs to be uploaded and
-           * begin uploading if it decides it's necessary.
-           */
+                   /* Allow for LogUploader to decide if the log needs to be uploaded and
+                    * begin uploading if it decides it's necessary.
+                    */
+
                     if (logUploader.shouldUpload()) {
                         try {
                             logStream.close();
@@ -404,10 +405,10 @@ public class PowerEstimator implements Runnable {
             }
         }
 
-    /* Blank the widget's display and turn off power button. */
+        /* Blank the widget's display and turn off power button. */
         PowerWidget.updateWidgetDone(context);
 
-    /* Have all of the power component threads exit. */
+        /* Have all of the power component threads exit. */
         logUploader.interrupt();
         for (int i = 0; i < components; i++) {
             powerComponents.get(i).interrupt();
@@ -423,9 +424,9 @@ public class PowerEstimator implements Runnable {
             }
         }
 
-    /* Close the logstream so that everything gets flushed and written to file
-     * before we have to quit.
-     */
+        /* Close the logstream so that everything gets flushed and written to file
+         * before we have to quit.
+         */
         synchronized (fileWriteLock) {
             if (logStream != null) try {
                 logStream.close();

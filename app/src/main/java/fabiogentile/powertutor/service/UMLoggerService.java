@@ -50,7 +50,7 @@ public class UMLoggerService extends Service {
     private static final String TAG = "UMLoggerService";
 
     private static final int NOTIFICATION_ID = 1;
-    private static final int NOTIFICATION_ID_LETTER = 2;
+    //private static final int NOTIFICATION_ID_LETTER = 2;
 
     private Thread estimatorThread;
     private PowerEstimator powerEstimator;
@@ -102,6 +102,8 @@ public class UMLoggerService extends Service {
                     return powerEstimator.getUidExtra(name, uid);
                 }
             };
+
+    //<editor-fold desc="Broadcast Intent">
     BroadcastReceiver broadcastIntentReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(Intent.ACTION_AIRPLANE_MODE_CHANGED)) {
@@ -138,8 +140,11 @@ public class UMLoggerService extends Service {
         }
 
     };
+    //</editor-fold>
+
     private Notification notification;
     private NotificationManager notificationManager;
+    private Notification.Builder builder;
     private TelephonyManager phoneManager;
     PhoneStateListener phoneListener = new PhoneStateListener() {
         public void onServiceStateChanged(ServiceState serviceState) {
@@ -219,17 +224,19 @@ public class UMLoggerService extends Service {
 
     @Override
     public void onCreate() {
+        Log.i(TAG, "onCreate: ");
         powerEstimator = new PowerEstimator(this);
 
-    /* Register to receive phone state messages. */
+        /* Register to receive phone state messages. */
         phoneManager = (TelephonyManager) this.getSystemService(TELEPHONY_SERVICE);
         phoneManager.listen(phoneListener, PhoneStateListener.LISTEN_CALL_STATE |
                 PhoneStateListener.LISTEN_DATA_CONNECTION_STATE |
                 PhoneStateListener.LISTEN_SERVICE_STATE |
                 PhoneStateListener.LISTEN_SIGNAL_STRENGTH);
 
-    /* Register to receive airplane mode and battery low messages. */
+        /* Register to receive airplane mode and battery low messages. */
         IntentFilter filter = new IntentFilter();
+
         filter.addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED);
         filter.addAction(Intent.ACTION_BATTERY_LOW);
         filter.addAction(Intent.ACTION_BATTERY_CHANGED);
@@ -244,7 +251,7 @@ public class UMLoggerService extends Service {
     @Override
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
-//android.os.Debug.startMethodTracing("pt.trace");
+        //android.os.Debug.startMethodTracing("pt.trace");
 
         if (intent.getBooleanExtra("stop", false)) {
             stopSelf();
@@ -259,7 +266,7 @@ public class UMLoggerService extends Service {
 
     @Override
     public void onDestroy() {
-//android.os.Debug.stopMethodTracing();
+        //android.os.Debug.stopMethodTracing();
         if (estimatorThread != null) {
             estimatorThread.interrupt();
             while (estimatorThread.isAlive()) {
@@ -271,17 +278,17 @@ public class UMLoggerService extends Service {
         }
         unregisterReceiver(broadcastIntentReceiver);
 
-    /* See comments in showNotification() for why we are using reflection here.
-     */
+        /*
+            See comments in showNotification() for why we are using reflection here.
+         */
         boolean foregroundSet = false;
         try {
             Method stopForeground = getClass().getMethod("stopForeground",
                     boolean.class);
             stopForeground.invoke(this, true);
             foregroundSet = true;
-        } catch (InvocationTargetException e) {
-        } catch (IllegalAccessException e) {
-        } catch (NoSuchMethodException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         if (!foregroundSet) {
             //setForeground(false);
@@ -291,6 +298,7 @@ public class UMLoggerService extends Service {
         super.onDestroy();
     }
 
+    //<editor-fold desc="Notification management">
     /**
      * This function is to construct the real-time updating notification
      */
@@ -298,11 +306,10 @@ public class UMLoggerService extends Service {
         int icon = R.drawable.level;
 
         // icon from resources
-        CharSequence tickerText = "PowerTutor";              // ticker-text
-        long when = System.currentTimeMillis();         // notification time
-        Context context = getApplicationContext();      // application Context
-        CharSequence contentTitle = "PowerTutor";  // expanded message title
-        CharSequence contentText = "";      // expanded message text
+        long when = System.currentTimeMillis();     // notification time
+        Context context = getApplicationContext();  // application Context
+        CharSequence contentTitle = "PowerTutor";   // expanded message title
+        CharSequence contentText = "";              // expanded message text
 
         Intent notificationIntent = new Intent(this, UMLogger.class);
         notificationIntent.putExtra("isFromIcon", true);
@@ -310,50 +317,50 @@ public class UMLoggerService extends Service {
                 notificationIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
+//        OLD NOTIFICATION METHOD
+//        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.HONEYCOMB) {
+//        /* the next two lines initialize the Notification, using the
+//         * configurations above.
+//         */
+//            notification = new Notification(icon, tickerText, when);
+//            notification.iconLevel = 2;
+//            try {
+//                // REFLECTION
+//                Method deprecatedMethod = notification.getClass().getMethod("setLatestEventInfo", Context.class, CharSequence.class, CharSequence.class, PendingIntent.class);
+//                deprecatedMethod.invoke(notification, context, contentTitle, contentText, contentIntent);
+//            } catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+//                Log.w(TAG, "Method not found", e);
+//            }
+//        }
+        // Use new API
 
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.HONEYCOMB) {
-        /* the next two lines initialize the Notification, using the
-         * configurations above.
+        builder = new Notification.Builder(context)
+                .setContentIntent(contentIntent)
+                .setSmallIcon(icon)
+                .setContentTitle(contentTitle);
+        notification = builder.build();
+
+
+
+        /* We need to set the service to run in the foreground so that system
+         * won't try to destroy the power logging service except in the most
+         * critical situations (which should be fairly rare).  Due to differences
+         * in apis across versions of android we have to use reflection.  The newer
+         * api simultaneously sets an app to be in the foreground while adding a
+         * notification icon so services can't 'hide' in the foreground.
+         * In the new api the old call, setForeground, does nothing.
+         * See: http://developer.android.com/reference/android/app/Service.html#startForeground%28int,%20android.app.Notification%29
          */
-            notification = new Notification(icon, tickerText, when);
-            notification.iconLevel = 2;
-            try {
-                // REFLECTION
-                Method deprecatedMethod = notification.getClass().getMethod("setLatestEventInfo", Context.class, CharSequence.class, CharSequence.class, PendingIntent.class);
-                deprecatedMethod.invoke(notification, context, contentTitle, contentText, contentIntent);
-            } catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-                Log.w(TAG, "Method not found", e);
-            }
-        } else {
-            // Use new API
-            Log.e(TAG, "Metodo notifica non valido");
-
-        /*Notification.Builder builder = new Notification.Builder(context)
-        .setContentIntent(contentIntent)
-        .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle(contentTitle);
-        notification = builder.build();*/
-        }
-
-    /* We need to set the service to run in the foreground so that system
-     * won't try to destroy the power logging service except in the most
-     * critical situations (which should be fairly rare).  Due to differences
-     * in apis across versions of android we have to use reflection.  The newer
-     * api simultaneously sets an app to be in the foreground while adding a
-     * notification icon so services can't 'hide' in the foreground.
-     * In the new api the old call, setForeground, does nothing.
-     * See: http://developer.android.com/reference/android/app/Service.html#startForeground%28int,%20android.app.Notification%29
-     */
         boolean foregroundSet = false;
         try {
             Method startForeground = getClass().getMethod("startForeground",
                     int.class, Notification.class);
             startForeground.invoke(this, NOTIFICATION_ID, notification);
             foregroundSet = true;
-        } catch (InvocationTargetException e) {
-        } catch (IllegalAccessException e) {
-        } catch (NoSuchMethodException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
         if (!foregroundSet) {
             //setForeground(true);
             notificationManager.notify(NOTIFICATION_ID, notification);
@@ -393,9 +400,9 @@ public class UMLoggerService extends Service {
         CharSequence contentText = "Total Power: " + (int) Math.round(totalPower) +
                 " mW";
 
-    /* When the user selects the notification the tab view for global power
-     * usage will appear.
-     */
+        /* When the user selects the notification the tab view for global power
+         * usage will appear.
+         */
         Intent notificationIntent = new Intent(this, UMLogger.class);
         notificationIntent.putExtra("isFromIcon", true);
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
@@ -414,16 +421,15 @@ public class UMLoggerService extends Service {
                 Log.w(TAG, "Method not found", e);
             }
         } else {
-            // Use new API
-            Log.e(TAG, "Metodo notifica non valido");
+            //Update notification content
+            builder.setContentText(contentText)
+                    .setContentTitle(contentTitle);
 
-        /*Notification.Builder builder = new Notification.Builder(context)
-        .setContentIntent(contentIntent)
-        .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle(contentTitle);
-        notification = builder.build();*/
+            notification = builder.build();
         }
 
+        Log.i(TAG, "updateNotification: " + contentText);
         notificationManager.notify(NOTIFICATION_ID, notification);
     }
+    //</editor-fold>
 }

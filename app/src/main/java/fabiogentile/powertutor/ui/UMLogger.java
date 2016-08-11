@@ -19,18 +19,25 @@ Please send inquiries to powertutor@umich.edu
 
 package fabiogentile.powertutor.ui;
 
+import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.support.v4.app.ActivityCompat;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -43,6 +50,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.zip.InflaterInputStream;
 
 import fabiogentile.powertutor.ICounterService;
@@ -54,9 +62,9 @@ import fabiogentile.powertutor.service.UMLoggerService;
  * The main view activity for PowerTutor
  */
 public class UMLogger extends Activity {
-    public static final String CURRENT_VERSION = "1.2"; // Don't change this...
-    public static final String SERVER_IP = "spidermonkey.eecs.umich.edu";
-    public static final int SERVER_PORT = 5204;
+    //    public static final String CURRENT_VERSION = "1.2"; // Don't change this...
+//    public static final String SERVER_IP = "spidermonkey.eecs.umich.edu";
+//    public static final int SERVER_PORT = 5204;
     private static final String TAG = "UMLogger";
     private static final int MENU_PREFERENCES = 0;
     private static final int MENU_SAVE_LOG = 1;
@@ -66,6 +74,7 @@ public class UMLogger extends Activity {
     private static final int DIALOG_RUNNING_ON_STARTUP = 3;
     private static final int DIALOG_NOT_RUNNING_ON_STARTUP = 4;
     private static final int DIALOG_UNKNOWN_PHONE = 5;
+    private static final int PERMISSION_REQUEST_CODE = 1;
     private SharedPreferences prefs;
     private Intent serviceIntent;
     private ICounterService counterService;
@@ -75,6 +84,8 @@ public class UMLogger extends Activity {
     private Button sysViewerButton;
     private Button helpButton;
     private TextView scaleText;
+
+    //<editor-fold desc="Click Listener">
     private Button.OnClickListener appViewerButtonListener =
             new Button.OnClickListener() {
                 public void onClick(View v) {
@@ -82,6 +93,7 @@ public class UMLogger extends Activity {
                     startActivityForResult(intent, 0);
                 }
             };
+
     private Button.OnClickListener sysViewerButtonListener =
             new Button.OnClickListener() {
                 public void onClick(View v) {
@@ -89,6 +101,7 @@ public class UMLogger extends Activity {
                     startActivityForResult(intent, 0);
                 }
             };
+
     private Button.OnClickListener serviceStartButtonListener =
             new Button.OnClickListener() {
                 public void onClick(View v) {
@@ -105,6 +118,7 @@ public class UMLogger extends Activity {
                     }
                 }
             };
+
     private Button.OnClickListener helpButtonListener =
             new Button.OnClickListener() {
                 public void onClick(View v) {
@@ -112,6 +126,7 @@ public class UMLogger extends Activity {
                     startActivityForResult(myIntent, 0);
                 }
             };
+    //</editor-fold>
 
     /**
      * Called when the activity is first created.
@@ -123,11 +138,16 @@ public class UMLogger extends Activity {
         serviceIntent = new Intent(this, UMLoggerService.class);
         conn = new CounterServiceConnection();
 
+
         setContentView(R.layout.main);
         ArrayAdapter<?> adapterxaxis = ArrayAdapter.createFromResource(
                 this, R.array.xaxis, android.R.layout.simple_spinner_item);
         adapterxaxis.setDropDownViewResource(
                 android.R.layout.simple_spinner_dropdown_item);
+
+        // TODO: 11/08/16 ASK PERMISSIONSSSSS
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            askPermission();
 
         serviceStartButton = (Button) findViewById(R.id.servicestartbutton);
         appViewerButton = (Button) findViewById(R.id.appviewerbutton);
@@ -149,6 +169,44 @@ public class UMLogger extends Activity {
             sysViewerButton.setEnabled(false);
         }
     }
+
+    //<editor-fold desc="PERMISSION">
+
+    /**
+     * Check if all permissions are granted or not
+     */
+    @TargetApi(Build.VERSION_CODES.M)
+    private void askPermission() {
+        ArrayList<String> permList = new ArrayList<>();
+        Context context = getApplicationContext();
+
+        if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            permList.add(Manifest.permission.ACCESS_FINE_LOCATION);
+
+        if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED)
+            permList.add(Manifest.permission.READ_PHONE_STATE);
+
+        //Check if some permission are needed
+        if (permList.size() > 0) {
+            String[] permArray = new String[permList.size()];
+
+            int i = 0;
+            for (String perm : permList) {
+                permArray[i++] = perm;
+            }
+
+            ActivityCompat.requestPermissions(this, permArray, PERMISSION_REQUEST_CODE);
+        }
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        for (int i = 0; i < permissions.length; i++) {
+            Log.i(TAG, "onRequestPermissionsResult: " + permissions[i] + "=" + grantResults[i]);
+        }
+    }
+    //</editor-fold>
 
     @Override
     public void onResume() {
@@ -243,14 +301,14 @@ public class UMLogger extends Activity {
                             public void onClick(DialogInterface dialog, int id) {
                                 prefs.edit().putBoolean("firstRun", false)
                                         .putBoolean("runOnStartup", true)
-                                        .putBoolean("sendPermission", true).commit();
+                                        .putBoolean("sendPermission", true).apply();
                                 dialog.dismiss();
                             }
                         })
                         .setNegativeButton("Do not agree",
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int id) {
-                                        prefs.edit().putBoolean("firstRun", true).commit();
+                                        prefs.edit().putBoolean("firstRun", true).apply();
                                         finish();
                                     }
                                 });
@@ -260,7 +318,7 @@ public class UMLogger extends Activity {
                         .setCancelable(true)
                         .setPositiveButton("Stop", new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
-                                prefs.edit().putBoolean("sendPermission", false).commit();
+                                prefs.edit().putBoolean("sendPermission", false).apply();
                                 dialog.dismiss();
                             }
                         })
@@ -275,7 +333,7 @@ public class UMLogger extends Activity {
                         .setCancelable(true)
                         .setPositiveButton("Start", new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
-                                prefs.edit().putBoolean("sendPermission", true).commit();
+                                prefs.edit().putBoolean("sendPermission", true).apply();
                                 dialog.dismiss();
                             }
                         })
@@ -310,6 +368,7 @@ public class UMLogger extends Activity {
         return null;
     }
 
+    //React to activation of service
     private class CounterServiceConnection implements ServiceConnection {
         public void onServiceConnected(ComponentName className,
                                        IBinder boundService) {
