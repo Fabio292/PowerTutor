@@ -71,6 +71,7 @@ public class DreamConstants implements PhoneConstants {
     }
 
     public double lcdBacklight() {
+        //Lcd  + Cpu ON
         return 121.4606 + 166.5;
     }
 

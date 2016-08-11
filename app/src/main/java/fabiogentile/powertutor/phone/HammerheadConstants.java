@@ -25,6 +25,7 @@ import android.hardware.SensorManager;
 
 import fabiogentile.powertutor.components.Sensors;
 
+//Values in mAh (?)
 public class HammerheadConstants implements PhoneConstants {
     protected static final String OPER_TMOBILE = "T - Mobile";
     protected static final String OPER_ATT = "AT&T";
@@ -82,11 +83,14 @@ public class HammerheadConstants implements PhoneConstants {
 
     //<editor-fold desc="LCD">
     public double lcdBrightness() {
-        return 2.40276;
+        //screen.full / 255
+        return 0.788862;
     }
 
     public double lcdBacklight() {
-        return 121.4606 + 166.5;
+        //screen.on
+        // TODO: 11/08/16 add cpu_base?
+        return 82.75;
     }
     //</editor-fold>
 
@@ -140,6 +144,7 @@ public class HammerheadConstants implements PhoneConstants {
         return 720;
     }
 
+    //PACKET PER SECONDS
     public double wifiLowHighTransition() {
         return 15;
     }
