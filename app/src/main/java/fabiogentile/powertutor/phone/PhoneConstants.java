@@ -29,7 +29,8 @@ public interface PhoneConstants {
     double maxPower();
 
     /**
-     * @return
+     * Gives the path of the brightness file
+     * @return File path
      */
     String backlightFile();
 

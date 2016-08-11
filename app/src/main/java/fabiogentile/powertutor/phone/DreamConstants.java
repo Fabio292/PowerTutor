@@ -66,6 +66,11 @@ public class DreamConstants implements PhoneConstants {
         return 2800;
     }
 
+    @Override
+    public String backlightFile() {
+        return "/sys/devices/virtual/leds/lcd-backlight/brightness";
+    }
+
     public double lcdBrightness() {
         return 2.40276;
     }

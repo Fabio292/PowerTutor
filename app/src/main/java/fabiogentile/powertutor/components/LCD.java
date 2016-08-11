@@ -27,7 +27,6 @@ import android.content.IntentFilter;
 import android.provider.Settings;
 import android.util.Log;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
@@ -79,11 +78,8 @@ public class LCD extends PowerComponent {
         intentFilter.addAction(Intent.ACTION_SCREEN_ON);
         context.registerReceiver(broadcastReceiver, intentFilter);
 
-        for (int i = 0; i < BACKLIGHT_BRIGHTNESS_FILES.length; i++) {
-            if (new File(BACKLIGHT_BRIGHTNESS_FILES[i]).exists()) {
-                brightnessFile = BACKLIGHT_BRIGHTNESS_FILES[i];
-            }
-        }
+
+        brightnessFile = constants.backlightFile();
     }
 
     @Override
