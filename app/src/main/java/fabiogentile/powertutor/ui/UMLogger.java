@@ -145,7 +145,7 @@ public class UMLogger extends Activity {
         adapterxaxis.setDropDownViewResource(
                 android.R.layout.simple_spinner_dropdown_item);
 
-        // TODO: 11/08/16 ASK PERMISSIONSSSSS
+        //If Marshmallow ask permission explicitly
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             askPermission();
 

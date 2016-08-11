@@ -38,10 +38,6 @@ import fabiogentile.powertutor.util.Recycler;
 import fabiogentile.powertutor.util.SystemInfo;
 
 public class LCD extends PowerComponent {
-    private static final String[] BACKLIGHT_BRIGHTNESS_FILES = {
-            "/sys/devices/virtual/leds/lcd-backlight/brightness",
-            "/sys/devices/platform/trout-backlight.0/leds/lcd-backlight/brightness",
-    };
     private final String TAG = "LCD";
     private Context context;
     private PhoneConstants constants;
@@ -77,7 +73,6 @@ public class LCD extends PowerComponent {
         intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_SCREEN_ON);
         context.registerReceiver(broadcastReceiver, intentFilter);
-
 
         brightnessFile = constants.backlightFile();
     }
