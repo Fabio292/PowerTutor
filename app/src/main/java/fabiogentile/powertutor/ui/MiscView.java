@@ -43,6 +43,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 import fabiogentile.powertutor.ICounterService;
 import fabiogentile.powertutor.R;
@@ -227,20 +228,27 @@ public class MiscView extends Activity {
         }
 
         public void setupView() {
-            if (txt == null) return;
+            if (txt == null)
+                return;
+
             double current = batteryStats.getCurrent();
+            String text;
+
             if (current <= 0) {
-                txt.setText(String.format("%1$.1f mA", -current * 1000));
+                text = "N.A.";
             } else {
-                double cp = batteryStats.getCapacity();
-                if (0.01 <= cp && cp <= 0.99 && batteryStats.hasCharge()) {
-                    long time = (long) (batteryStats.getCharge() / cp * (1.0 - cp) /
-                            current);
-                    txt.setText(String.format(
-                            "%1$.1f mA\n(Charge time %2$d:%3$02d:%4$02d)", current * 1000,
-                            time / 60 / 60, time / 60 % 60, time % 60));
-                }
+//                double cp = batteryStats.getCapacity();
+//                if (0.01 <= cp && cp <= 0.99 && batteryStats.hasCharge()) {
+//                    long time = (long) (batteryStats.getCharge() / cp * (1.0 - cp) /
+//                            current);
+//                    text = String.format(
+//                            "%1$.1f mA\n(Charge time %2$d:%3$02d:%4$02d)", current * 1000,
+//                            time / 60 / 60, time / 60 % 60, time % 60);
+//                }
+//                else
+                text = String.format(Locale.getDefault(), "%1$.2f", current * 1000);
             }
+            txt.setText(text);
             txt.setGravity(Gravity.CENTER);
 
             title.setText("Current");
