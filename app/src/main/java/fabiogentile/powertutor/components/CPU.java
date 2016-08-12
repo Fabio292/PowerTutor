@@ -56,8 +56,8 @@ public class CPU extends PowerComponent {
     @Override
     public IterationData calculateIteration(long iteration) {
         IterationData result = IterationData.obtain();
-
         SystemInfo sysInfo = SystemInfo.getInstance();
+
         double freq = readCpuFreq(sysInfo);
         if (freq < 0) {
             Log.w(TAG, "Failed to read cpu frequency");
@@ -85,59 +85,61 @@ public class CPU extends PowerComponent {
         uidLinks.clear();
         pids = sysInfo.getPids(pids);
         int pidInd = 0;
-        if (pids != null) for (int pid : pids) {
-            if (pid < 0) {
-                break;
-            }
+        if (pids != null) {
 
-            CpuStateKeeper pidState;
-            if (pidInd < pidStates.size() && pidStates.keyAt(pidInd) == pid) {
-                pidState = pidStates.valueAt(pidInd);
-            } else {
-                int uid = sysInfo.getUidForPid(pid);
-                if (uid >= 0) {
-                    pidState = new CpuStateKeeper(uid);
-                    pidStates.put(pid, pidState);
+            for (int pid : pids) {
+                if (pid < 0)
+                    break;
+
+                CpuStateKeeper pidState;
+                if (pidInd < pidStates.size() && pidStates.keyAt(pidInd) == pid) {
+                    pidState = pidStates.valueAt(pidInd);
                 } else {
-          /* Assume that this process no longer exists. */
-                    continue;
+                    int uid = sysInfo.getUidForPid(pid);
+                    if (uid >= 0) {
+                        pidState = new CpuStateKeeper(uid);
+                        pidStates.put(pid, pidState);
+                    } else {
+                        /* Assume that this process no longer exists. */
+                        continue;
+                    }
                 }
-            }
-            pidInd++;
+                pidInd++;
 
-            if (!pidState.isStale(iteration)) {
-        /* Nothing much is going on with this pid recently.  We'll just
-         * assume that it's not using any of the cpu for this iteration.
-         */
-                pidState.updateIteration(iteration, totalTime);
-            } else if (sysInfo.getPidUsrSysTime(pid, statsBuf)) {
-                usrTime = statsBuf[SystemInfo.INDEX_USER_TIME];
-                sysTime = statsBuf[SystemInfo.INDEX_SYS_TIME];
+                if (!pidState.isStale(iteration)) {
+                    /* Nothing much is going on with this pid recently.  We'll just
+                    *  assume that it's not using any of the cpu for this iteration.
+                    */
+                    pidState.updateIteration(iteration, totalTime);
+                } else if (sysInfo.getPidUsrSysTime(pid, statsBuf)) {
+                    usrTime = statsBuf[SystemInfo.INDEX_USER_TIME];
+                    sysTime = statsBuf[SystemInfo.INDEX_SYS_TIME];
 
-                init = pidState.isInitialized();
-                pidState.updateState(usrTime, sysTime, totalTime, iteration);
+                    init = pidState.isInitialized();
+                    pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
-                if (!init) {
-                    continue;
+                    if (!init) {
+                        continue;
+                    }
                 }
-            }
 
-            CpuStateKeeper linkState = uidLinks.get(pidState.getUid());
-            if (linkState == null) {
-                uidLinks.put(pidState.getUid(), pidState);
-            } else {
-                linkState.absorb(pidState);
+                CpuStateKeeper linkState = uidLinks.get(pidState.getUid());
+                if (linkState == null) {
+                    uidLinks.put(pidState.getUid(), pidState);
+                } else {
+                    linkState.absorb(pidState);
+                }
             }
         }
 
-    /* Remove processes that are no longer active. */
+        /* Remove processes that are no longer active. */
         for (int i = 0; i < pidStates.size(); i++) {
             if (!pidStates.valueAt(i).isAlive(iteration)) {
                 pidStates.remove(pidStates.keyAt(i--));
             }
         }
 
-    /* Collect the summed uid information. */
+        /* Collect the summed uid information. */
         for (int i = 0; i < uidLinks.size(); i++) {
             int uid = uidLinks.keyAt(i);
             CpuStateKeeper linkState = uidLinks.valueAt(i);
@@ -197,9 +199,9 @@ public class CPU extends PowerComponent {
      * be determined returns a negative value instead.
      */
     private double readCpuFreq(SystemInfo sysInfo) {
-    /* Try to read from the /sys/devices file first.  If that doesn't work
-     * try manually inspecting the /proc/cpuinfo file.
-     */
+        /* Try to read from the /sys/devices file first.  If that doesn't work
+         * try manually inspecting the /proc/cpuinfo file.
+         */
         long cpuFreqKhz = sysInfo.readLongFromFile(
                 "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq");
         if (cpuFreqKhz != -1) {
@@ -222,9 +224,9 @@ public class CPU extends PowerComponent {
                 }
             }
         } catch (IOException e) {
-      /* Failed to read from the cpu freq file. */
+        /* Failed to read from the cpu freq file. */
         } catch (NumberFormatException e) {
-      /* Frequency not formatted properly as a double. */
+        /* Frequency not formatted properly as a double. */
         }
         Log.w(TAG, "Failed to read cpu frequency");
         return -1;

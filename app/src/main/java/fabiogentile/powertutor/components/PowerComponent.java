@@ -73,13 +73,14 @@ public abstract class PowerComponent extends Thread {
 
     /* Runs the daemon loop that collects data for this component. */
     public void run() {
-        android.os.Process.setThreadPriority(
-                android.os.Process.THREAD_PRIORITY_MORE_FAVORABLE);
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_MORE_FAVORABLE);
+
         for (long iter = 0; !Thread.interrupted(); ) {
-      /* Hand off to the client class to actually calculate the information
-       * we want for this component.
-       */
+            /* Hand off to the client class to actually calculate the information
+            *  we want for this component.
+            */
             IterationData data = calculateIteration(iter);
+
             if (data != null) {
                 synchronized (this) {
                     if (iteration1 < iteration2) {
@@ -96,7 +97,7 @@ public abstract class PowerComponent extends Thread {
             }
 
             long curTime = SystemClock.elapsedRealtime();
-      /* Compute the next iteration that we can make the start of. */
+            /* Compute the next iteration that we can make the start of. */
             long oldIter = iter;
             iter = Math.max(iter + 1,
                     1 + (curTime - beginTime) / iterationInterval);
@@ -104,13 +105,15 @@ public abstract class PowerComponent extends Thread {
                 Log.w(TAG, "[" + getComponentName() + "] Had to skip from iteration " +
                         oldIter + " to " + iter);
             }
-      /* Sleep until the next iteration completes. */
+
+            /* Sleep until the next iteration completes. */
             try {
                 sleep(beginTime + iter * iterationInterval - curTime);
             } catch (InterruptedException e) {
                 break;
             }
         }
+
         onExit();
     }
 
@@ -120,8 +123,12 @@ public abstract class PowerComponent extends Thread {
     public IterationData getData(long iteration) {
         synchronized (this) {
             IterationData ret = null;
-            if (iteration == iteration1) ret = data1;
-            if (iteration == iteration2) ret = data2;
+
+            if (iteration == iteration1)
+                ret = data1;
+            if (iteration == iteration2)
+                ret = data2;
+
             if (iteration1 <= iteration) {
                 data1 = null;
                 iteration1 = -1;

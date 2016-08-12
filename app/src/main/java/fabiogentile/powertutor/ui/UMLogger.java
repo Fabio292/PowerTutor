@@ -186,6 +186,9 @@ public class UMLogger extends Activity {
         if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED)
             permList.add(Manifest.permission.READ_PHONE_STATE);
 
+        if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            permList.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+
         //Check if some permission are needed
         if (permList.size() > 0) {
             String[] permArray = new String[permList.size()];

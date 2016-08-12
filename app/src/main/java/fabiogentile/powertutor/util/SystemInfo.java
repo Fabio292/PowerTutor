@@ -30,61 +30,57 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class SystemInfo {
     /* Uids as listed in android_filesystem_config.h */
-    public static final int AID_ALL = -1; /* A special constant we will
-                                                   * use to indicate a request
-                                                   * for global information. */
-    public static final int AID_ROOT = 0; /* traditional unix root user
-                                                   */
-    public static final int AID_SYSTEM = 1000; /* system server */
-    public static final int AID_RADIO = 1001; /* telephony subsystem, RIL */
-    public static final int AID_BLUETOOTH = 1002; /* bluetooth subsystem */
-    public static final int AID_GRAPHICS = 1003; /* graphics devices */
-    public static final int AID_INPUT = 1004; /* input devices */
-    public static final int AID_AUDIO = 1005; /* audio devices */
-    public static final int AID_CAMERA = 1006; /* camera devices */
-    public static final int AID_LOG = 1007; /* log devices */
-    public static final int AID_COMPASS = 1008; /* compass device */
-    public static final int AID_MOUNT = 1009; /* mountd socket */
-    public static final int AID_WIFI = 1010; /* wifi subsystem */
-    public static final int AID_ADB = 1011; /* android debug bridge
-                                                     (adbd) */
-    public static final int AID_INSTALL = 1012; /* group for installing
-                                                     packages */
-    public static final int AID_MEDIA = 1013; /* mediaserver process */
-    public static final int AID_DHCP = 1014; /* dhcp client */
-    public static final int AID_SHELL = 2000; /* adb and debug shell user */
-    public static final int AID_CACHE = 2001; /* cache access */
-    public static final int AID_DIAG = 2002; /* access to diagnostic
-                                                     resources */
+    public static final int AID_ALL = -1;           /* A special constant we will
+                                                     * use to indicate a request
+                                                     * for global information. */
+    public static final int AID_ROOT = 0;           /* traditional unix root user */
+    public static final int AID_SYSTEM = 1000;      /* system server */
+    public static final int AID_RADIO = 1001;       /* telephony subsystem, RIL */
+    public static final int AID_BLUETOOTH = 1002;   /* bluetooth subsystem */
+    public static final int AID_GRAPHICS = 1003;    /* graphics devices */
+    public static final int AID_INPUT = 1004;       /* input devices */
+    public static final int AID_AUDIO = 1005;       /* audio devices */
+    public static final int AID_CAMERA = 1006;      /* camera devices */
+    public static final int AID_LOG = 1007;         /* log devices */
+    public static final int AID_COMPASS = 1008;     /* compass device */
+    public static final int AID_MOUNT = 1009;       /* mountd socket */
+    public static final int AID_WIFI = 1010;        /* wifi subsystem */
+    public static final int AID_ADB = 1011;         /* android debug bridge (adbd) */
+    public static final int AID_INSTALL = 1012;     /* group for installing  packages */
+    public static final int AID_MEDIA = 1013;       /* mediaserver process */
+    public static final int AID_DHCP = 1014;        /* dhcp client */
+    public static final int AID_SHELL = 2000;       /* adb and debug shell user */
+    public static final int AID_CACHE = 2001;       /* cache access */
+    public static final int AID_DIAG = 2002;        /* access to diagnostic resources */
     /* The 3000 series are intended for use as supplemental group id's only.
      * They indicate special Android capabilities that the kernel is aware of. */
-    public static final int AID_NET_BT_ADMIN = 3001; /* bluetooth: create any
-                                                     socket */
-    public static final int AID_NET_BT = 3002; /* bluetooth: create sco,
-                                                     rfcomm or l2cap sockets */
-    public static final int AID_INET = 3003; /* can create AF_INET and
-                                                     AF_INET6 sockets */
-    public static final int AID_NET_RAW = 3004; /* can create raw INET sockets
-                                                   */
-    public static final int AID_MISC = 9998; /* access to misc storage */
+    public static final int AID_NET_BT_ADMIN = 3001;/* bluetooth: create any socket */
+    public static final int AID_NET_BT = 3002;      /* bluetooth: create sco, rfcomm or l2cap sockets */
+    public static final int AID_INET = 3003;        /* can create AF_INET and AF_INET6 sockets */
+    public static final int AID_NET_RAW = 3004;     /* can create raw INET sockets */
+    public static final int AID_MISC = 9998;        /* access to misc storage */
     public static final int AID_NOBODY = 9999;
-    public static final int AID_APP = 10000; /* first app user */
+    public static final int AID_APP = 10000;        /* first app user */
     /* These are stolen from Process.java which hides these constants. */
     public static final int PROC_SPACE_TERM = (int) ' ';
     public static final int PROC_TAB_TERM = (int) '\t';
     public static final int PROC_LINE_TERM = (int) '\n';
     public static final int PROC_COMBINE = 0x100;
     public static final int PROC_OUT_LONG = 0x2000;
+    public static final int PROC_OUT_STRING = 0x1000;
     public static final int INDEX_USER_TIME = 0;
     public static final int INDEX_SYS_TIME = 1;
     public static final int INDEX_TOTAL_TIME = 2;
@@ -92,24 +88,25 @@ public class SystemInfo {
     public static final int INDEX_MEM_FREE = 1;
     public static final int INDEX_MEM_BUFFERS = 2;
     public static final int INDEX_MEM_CACHED = 3;
+    public static final int BASE_PROCESS_NUMBER = 190;  //Estimated process number at system startup
     private static final String TAG = "SystemInfo";
     private static final int[] READ_LONG_FORMAT = new int[]{
             PROC_SPACE_TERM | PROC_OUT_LONG
     };
     private static final int[] PROCESS_STATS_FORMAT = new int[]{
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
-            PROC_SPACE_TERM,
+            PROC_SPACE_TERM | PROC_OUT_STRING,
+            PROC_SPACE_TERM | PROC_OUT_STRING,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG,
             PROC_SPACE_TERM | PROC_OUT_LONG,                  // 13: utime
             PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
     };
@@ -129,8 +126,12 @@ public class SystemInfo {
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
     };
+    private static final int HASHMAP_UPDATE_PERIOD = 2000;  //Time to call updatePidUidMap in ms
+    private static final int STARTUP_PROCESS_NUMBER = 190;  //Estimated process number at startup
     private static SystemInfo instance = new SystemInfo();
+    private static HashMap<Integer, Integer> mapPidUidMap;
     SparseArray<UidCacheEntry> uidCache = new SparseArray<UidCacheEntry>();
+    // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE
     /* We are going to take advantage of the hidden API within Process.java that
      * makes use of JNI so that we can perform the top task efficiently.
      */
@@ -139,33 +140,42 @@ public class SystemInfo {
     private Method methodGetPids;
     private Method methodReadProcFile;
     private Method methodGetProperty;
-
     private long[] readBuf;
 
+
     @SuppressWarnings("unchecked")
+    /**
+     * REFLECTION
+     */
     private SystemInfo() {
+        Log.i(TAG, "SystemInfo: CREATO");
+        //<editor-fold desc="REFLECTION">
         try {
             fieldUid = ActivityManager.RunningAppProcessInfo.class.getField("uid");
         } catch (NoSuchFieldException e) {
-      /* API level 3 doesn't have this field unfortunately. */
+            /* API level 3 doesn't have this field unfortunately. */
         }
+
         try {
             methodGetUidForPid = Process.class.getMethod("getUidForPid", int.class);
         } catch (NoSuchMethodException e) {
             Log.w(TAG, "Could not access getUidForPid method");
         }
+
         try {
             methodGetPids = Process.class.getMethod("getPids", String.class,
                     int[].class);
         } catch (NoSuchMethodException e) {
             Log.w(TAG, "Could not access getPids method");
         }
+
         try {
             methodReadProcFile = Process.class.getMethod("readProcFile", String.class,
                     int[].class, String[].class, long[].class, float[].class);
         } catch (NoSuchMethodException e) {
             Log.w(TAG, "Could not access readProcFile method");
         }
+
         try {
             Class classSystemProperties = Class.forName("android.os.SystemProperties");
             methodGetProperty = classSystemProperties.getMethod("get", String.class);
@@ -174,6 +184,19 @@ public class SystemInfo {
         } catch (ClassNotFoundException e) {
             Log.w(TAG, "Could not find class android.os.SystemProperties");
         }
+        //</editor-fold>
+
+        //Instantiate the hashmap with a hypotetical number of process
+        mapPidUidMap = new HashMap<>(STARTUP_PROCESS_NUMBER);
+
+        //Schedule timer to update hashmap
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                SystemInfo.updatePidUidMap();
+            }
+        }, 0, HASHMAP_UPDATE_PERIOD);
+
         readBuf = new long[1];
     }
 
@@ -181,33 +204,65 @@ public class SystemInfo {
         return instance;
     }
 
-    public int getUidForPid(int pid) {
-        if (methodGetUidForPid != null) {
-            try {
-                return (Integer) methodGetUidForPid.invoke(null, pid);
-            } catch (IllegalAccessException e) {
-                Log.w(TAG, "Call to getUidForPid failed");
-            } catch (InvocationTargetException e) {
-                Log.w(TAG, "Call to getUidForPid failed!");
-            }
-        } else try {
-            BufferedReader rdr = new BufferedReader(new InputStreamReader(
-                    new FileInputStream("/proc/" + pid + "/status")), 256);
-            for (String line = rdr.readLine(); line != null; line = rdr.readLine()) {
-                if (line.startsWith("Uid:")) {
-                    String tokens[] = line.substring(4).split("[ \t]+");
-                    String realUidToken = tokens[tokens[0].length() == 0 ? 1 : 0];
-                    try {
-                        return Integer.parseInt(realUidToken);
-                    } catch (NumberFormatException e) {
-                        return -1;
-                    }
+    /**
+     * Update the mapPidUidMap hashmap
+     */
+    public static void updatePidUidMap() {
+        try {
+            java.lang.Process process = Runtime.getRuntime().exec("su");
+            DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+            outputStream.writeBytes("/system/xbin/ps -o pid,user\n");
+            outputStream.flush();
+
+            BufferedReader bufferedReader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()), 2048);
+
+            outputStream.writeBytes("exit\n");
+            outputStream.flush();
+
+            //Skip first line (header)
+            String line = bufferedReader.readLine();
+
+            mapPidUidMap.clear();
+            int pid, uid;
+            while ((line = bufferedReader.readLine()) != null) {
+                try {
+                    line = line.trim();
+                    String[] token = line.split(" ");
+
+                    pid = Integer.parseInt(token[0]);
+                    uid = Integer.parseInt(token[1]);
+
+                    mapPidUidMap.put(pid, uid);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+
             }
-        } catch (IOException e) {
-            Log.w(TAG, "Failed to manually read in process uid");
+            process.waitFor();
+
+            outputStream.close();
+            bufferedReader.close();
+
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
-        return -1;
+    }
+
+    /**
+     * Search the user that own a specific process
+     *
+     * @param pid Process id
+     * @return uid owener of pid
+     */
+    public int getUidForPid(int pid) {
+
+        if (mapPidUidMap.containsKey(pid))
+            return mapPidUidMap.get(pid);
+        else
+            return -1;
+
     }
 
     public int getUidForProcessInfo(ActivityManager.RunningAppProcessInfo app) {
@@ -355,7 +410,8 @@ public class SystemInfo {
 
     /* Returns -1 on failure. */
     public long readLongFromFile(String file) {
-        if (methodReadProcFile == null) return -1;
+        if (methodReadProcFile == null)
+            return -1;
         try {
             if ((Boolean) methodReadProcFile.invoke(
                     null, file, READ_LONG_FORMAT, null, readBuf, null)) {
