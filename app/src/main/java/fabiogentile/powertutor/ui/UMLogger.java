@@ -57,6 +57,7 @@ import fabiogentile.powertutor.ICounterService;
 import fabiogentile.powertutor.R;
 import fabiogentile.powertutor.phone.PhoneSelector;
 import fabiogentile.powertutor.service.UMLoggerService;
+import fabiogentile.powertutor.util.SystemInfo;
 
 /**
  * The main view activity for PowerTutor
@@ -134,10 +135,12 @@ public class UMLogger extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate: ");
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         serviceIntent = new Intent(this, UMLoggerService.class);
         conn = new CounterServiceConnection();
 
+        SystemInfo.getInstance().setContext(getApplicationContext());
 
         setContentView(R.layout.main);
         ArrayAdapter<?> adapterxaxis = ArrayAdapter.createFromResource(

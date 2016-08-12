@@ -237,15 +237,6 @@ public class MiscView extends Activity {
             if (current <= 0) {
                 text = "N.A.";
             } else {
-//                double cp = batteryStats.getCapacity();
-//                if (0.01 <= cp && cp <= 0.99 && batteryStats.hasCharge()) {
-//                    long time = (long) (batteryStats.getCharge() / cp * (1.0 - cp) /
-//                            current);
-//                    text = String.format(
-//                            "%1$.1f mA\n(Charge time %2$d:%3$02d:%4$02d)", current * 1000,
-//                            time / 60 / 60, time / 60 % 60, time % 60);
-//                }
-//                else
                 text = String.format(Locale.getDefault(), "%1$.2f", current * 1000);
             }
             txt.setText(text);

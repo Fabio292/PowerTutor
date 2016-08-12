@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.text.DecimalFormat;
 import java.util.Arrays;
+import java.util.Locale;
 
 import fabiogentile.powertutor.ICounterService;
 import fabiogentile.powertutor.service.PowerEstimator;
@@ -85,6 +86,8 @@ public class PowerTop extends Activity implements Runnable {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate: ");
+
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         serviceIntent = new Intent(this, UMLoggerService.class);
         conn = new CounterServiceConnection();
@@ -95,11 +98,14 @@ public class PowerTop extends Activity implements Runnable {
 
         topGroup = new LinearLayout(this);
         topGroup.setOrientation(LinearLayout.VERTICAL);
+
         ScrollView scrollView = new ScrollView(this);
         scrollView.addView(topGroup);
+
         filterGroup = new LinearLayout(this);
         filterGroup.setOrientation(LinearLayout.HORIZONTAL);
         filterGroup.setMinimumHeight(50);
+
         mainView = new LinearLayout(this);
         mainView.setOrientation(LinearLayout.VERTICAL);
         mainView.addView(filterGroup);
@@ -131,6 +137,7 @@ public class PowerTop extends Activity implements Runnable {
         outState.putInt("noUidMask", noUidMask);
     }
 
+    //<editor-fold desc="OPTIONS">
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, MENU_KEY, 0, "Display Type");
@@ -162,6 +169,7 @@ public class PowerTop extends Activity implements Runnable {
         }
         return false;
     }
+    //</editor-fold>
 
     @Override
     protected Dialog onCreateDialog(int id) {
@@ -274,6 +282,9 @@ public class PowerTop extends Activity implements Runnable {
         }
     }
 
+    /**
+     * Refresh the view every 2 PowerEstimator.ITERATION_INTERVAL
+     */
     public void run() {
         refreshView();
         if (handler != null) {
@@ -293,24 +304,29 @@ public class PowerTop extends Activity implements Runnable {
 
         private UidPowerView(final Activity activity, final Intent startIntent) {
             super(activity);
-            setMinimumHeight(50);
+            SystemInfo sysInfo = SystemInfo.getInstance();
+            setMinimumHeight(sysInfo.dpToPixel(65));
             setOrientation(LinearLayout.HORIZONTAL);
+
             imageView = new ImageView(activity);
             imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
             imageView.setAdjustViewBounds(true);
-            imageView.setMaxHeight(40);
-            imageView.setMaxWidth(40);
-            imageView.setMinimumWidth(50);
+            imageView.setMaxHeight(sysInfo.dpToPixel(65));
+            imageView.setMaxWidth(sysInfo.dpToPixel(65));
+            imageView.setMinimumWidth(sysInfo.dpToPixel(75));
             imageView.setLayoutParams(new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.FILL_PARENT));
+
             textView = new TextView(activity);
             textView.setGravity(Gravity.CENTER_VERTICAL);
             textView.setLayoutParams(new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.FILL_PARENT,
                     ViewGroup.LayoutParams.FILL_PARENT));
+
             addView(imageView);
             addView(textView);
+
             setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     Intent viewIntent = new Intent(v.getContext(), PowerTabs.class);
@@ -319,6 +335,7 @@ public class PowerTop extends Activity implements Runnable {
                     activity.startActivityForResult(viewIntent, 0);
                 }
             });
+
             setFocusable(true);
         }
 
@@ -336,9 +353,13 @@ public class PowerTop extends Activity implements Runnable {
             SystemInfo sysInfo = SystemInfo.getInstance();
             this.uidInfo = uidInfo;
             PackageManager pm = getContext().getPackageManager();
+
             name = sysInfo.getUidName(uidInfo.uid, pm);
             icon = sysInfo.getUidIcon(uidInfo.uid, pm);
+
             imageView.setImageDrawable(icon);
+            //imageView.setMaxHeight();
+
             String prefix;
             if (uidInfo.key > 1e12) {
                 prefix = "G";
@@ -357,7 +378,7 @@ public class PowerTop extends Activity implements Runnable {
             }
             long secs = (long) Math.round(uidInfo.runtime);
 
-            textView.setText(String.format("%1$.1f%% [%3$d:%4$02d:%5$02d] %2$s\n" +
+            textView.setText(String.format(Locale.getDefault(), "%1$.1f%% [%3$d:%4$02d:%5$02d] %2$s\n" +
                             "%6$.1f %7$s%8$s",
                     uidInfo.percentage, name, secs / 60 / 60, (secs / 60) % 60,
                     secs % 60, uidInfo.key, prefix, uidInfo.unit));
@@ -389,11 +410,11 @@ public class PowerTop extends Activity implements Runnable {
                             int ignMask = prefs.getInt("topIgnoreMask", 0);
                             if ((ignMask & 1 << index) == 0) {
                                 prefs.edit().putInt("topIgnoreMask", ignMask | 1 << index)
-                                        .commit();
+                                        .apply();
                                 filterToggle.setTextColor(0xFF888888);
                             } else {
                                 prefs.edit().putInt("topIgnoreMask", ignMask & ~(1 << index))
-                                        .commit();
+                                        .apply();
                                 filterToggle.setTextColor(0xFFFFFFFF);
                             }
                         }

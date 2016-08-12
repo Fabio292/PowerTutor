@@ -20,6 +20,7 @@ Please send inquiries to powertutor@umich.edu
 package fabiogentile.powertutor.util;
 
 import android.app.ActivityManager;
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -130,6 +131,8 @@ public class SystemInfo {
     private static final int STARTUP_PROCESS_NUMBER = 190;  //Estimated process number at startup
     private static SystemInfo instance = new SystemInfo();
     private static HashMap<Integer, Integer> mapPidUidMap;
+    private static Context context;
+    private static float pixelConversionScale = 1.0F;
     SparseArray<UidCacheEntry> uidCache = new SparseArray<UidCacheEntry>();
     // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE
     /* We are going to take advantage of the hidden API within Process.java that
@@ -198,6 +201,7 @@ public class SystemInfo {
         }, 0, HASHMAP_UPDATE_PERIOD);
 
         readBuf = new long[1];
+
     }
 
     public static SystemInfo getInstance() {
@@ -209,13 +213,14 @@ public class SystemInfo {
      */
     public static void updatePidUidMap() {
         try {
+            //Exec the command as root to see all processes
             java.lang.Process process = Runtime.getRuntime().exec("su");
             DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
             outputStream.writeBytes("/system/xbin/ps -o pid,user\n");
             outputStream.flush();
 
             BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()), 2048);
+                    new InputStreamReader(process.getInputStream()), 4096);
 
             outputStream.writeBytes("exit\n");
             outputStream.flush();
@@ -234,7 +239,6 @@ public class SystemInfo {
                     uid = Integer.parseInt(token[1]);
 
                     mapPidUidMap.put(pid, uid);
-
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -248,6 +252,11 @@ public class SystemInfo {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+    }
+
+    public void setContext(Context context) {
+        SystemInfo.context = context;
+        pixelConversionScale = context.getResources().getDisplayMetrics().density;
     }
 
     /**
@@ -568,6 +577,16 @@ public class SystemInfo {
 
     public synchronized void voidUidCache(int uid) {
         uidCache.remove(uid);
+    }
+
+    /**
+     * Convert dp to equivalent pixel
+     *
+     * @param dp
+     * @return screen-dependant size
+     */
+    public int dpToPixel(int dp) {
+        return (int) (dp * pixelConversionScale + 0.5f);
     }
 
     private static class UidCacheEntry {

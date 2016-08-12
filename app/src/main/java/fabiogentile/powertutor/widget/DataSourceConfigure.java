@@ -22,6 +22,7 @@ package fabiogentile.powertutor.widget;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -41,6 +42,7 @@ public class DataSourceConfigure extends Activity {
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+        Log.d("DataSourceConfigure", "onCreate: ");
         setResult(RESULT_CANCELED);
 
         Intent intent = getIntent();

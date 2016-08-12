@@ -23,6 +23,9 @@ import java.io.Serializable;
 
 import fabiogentile.powertutor.util.Recycler;
 
+/**
+ * Class used to store information about an application
+ */
 public class UidInfo implements Serializable, Comparable {
     private static Recycler<UidInfo> recycler = new Recycler<UidInfo>();
     public int uid;

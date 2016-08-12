@@ -154,6 +154,7 @@ public class PowerViewer extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate: ");
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         uid = getIntent().getIntExtra("uid", SystemInfo.AID_ALL);
 

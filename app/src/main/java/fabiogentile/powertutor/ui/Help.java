@@ -23,6 +23,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
@@ -37,6 +38,8 @@ public class Help extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d("Help", "onCreate: ");
+
         setContentView(R.layout.help);
         TextView s2 = (TextView) this.findViewById(R.id.S2);
 

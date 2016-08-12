@@ -52,6 +52,7 @@ public class Configure extends Activity {
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+        Log.d(TAG, "onCreate: ");
         setResult(RESULT_CANCELED);
 
         Intent intent = getIntent();
