@@ -35,6 +35,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -320,6 +321,7 @@ public class PowerTop extends Activity implements Runnable {
 
             textView = new TextView(activity);
             textView.setGravity(Gravity.CENTER_VERTICAL);
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
             textView.setLayoutParams(new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.FILL_PARENT,
                     ViewGroup.LayoutParams.FILL_PARENT));
