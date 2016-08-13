@@ -201,6 +201,7 @@ public class PowerEstimator implements Runnable {
                     int uid = uidPower.keyAt(j);
                     PowerData powerData = uidPower.valueAt(j);
                     int power = (int) powerFunctions.get(i).calculate(powerData);
+                    Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
 
                     powerData.setCachedPower(power);
                     //Add infromation to uid history

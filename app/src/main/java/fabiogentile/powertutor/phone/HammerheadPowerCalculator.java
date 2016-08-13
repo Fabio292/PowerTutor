@@ -20,7 +20,6 @@ Please send inquiries to powertutor@umich.edu
 package fabiogentile.powertutor.phone;
 
 import android.content.Context;
-import android.util.Log;
 
 import fabiogentile.powertutor.components.Audio.AudioData;
 import fabiogentile.powertutor.components.CPU.CpuData;
@@ -68,8 +67,6 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     public double getLcdPower(LcdData data) {
         double ret = data.screenOn ?
                 coeffs.lcdBrightness() * data.brightness + coeffs.lcdBacklight() : 0;
-
-        Log.i(TAG, "getLcdPower: " + ret);
         return ret;
     }
 

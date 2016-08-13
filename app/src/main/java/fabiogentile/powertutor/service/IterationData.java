@@ -45,14 +45,16 @@ public class IterationData {
         return new IterationData();
     }
 
-    /* Initialize the members of this structure.  Remember that this class may not
+    /**
+     * Initialize the members of this structure.  Remember that this class may not
      * have just been instantiated and may have been used in past iterations.
      */
     public void init() {
         uidPower.clear();
     }
 
-    /* Allow this class to be recycled and to recycle all of the PowerData
+    /**
+     * Allow this class to be recycled and to recycle all of the PowerData
      * PowerData elements contained within it.
      */
     public void recycle() {

@@ -83,10 +83,11 @@ public abstract class PowerComponent extends Thread {
 
         for (long iter = 0; !Thread.interrupted(); ) {
             /* Hand off to the client class to actually calculate the information
-            *  we want for this component.
-            */
+             * we want for this component.
+             */
             IterationData data = calculateIteration(iter);
 
+            // Update data
             if (data != null) {
                 synchronized (this) {
                     if (iteration1 < iteration2) {
@@ -105,8 +106,7 @@ public abstract class PowerComponent extends Thread {
             long curTime = SystemClock.elapsedRealtime();
             /* Compute the next iteration that we can make the start of. */
             long oldIter = iter;
-            iter = Math.max(iter + 1,
-                    1 + (curTime - beginTime) / iterationInterval);
+            iter = Math.max(iter + 1, 1 + (curTime - beginTime) / iterationInterval);
             if (oldIter + 1 != iter) {
                 Log.w(TAG, "[" + getComponentName() + "] Had to skip from iteration " +
                         oldIter + " to " + iter);
@@ -145,7 +145,7 @@ public abstract class PowerComponent extends Thread {
             }
             if (ret == null) {
                 Log.w(TAG, "[" + getComponentName() + "] Could not find data for " +
-                        "requested iteration");
+                        "requested iteration. Computation too slow?");
             }
             return ret;
         }

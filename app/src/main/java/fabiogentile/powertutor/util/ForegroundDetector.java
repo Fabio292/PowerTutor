@@ -25,7 +25,8 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 
-/* This detector looks for transitions where one app leaves the foreground and
+/**
+ * This detector looks for transitions where one app leaves the foreground and
  * another enters the foreground to detect apps that are legitimately in the
  * foreground.  If no application is known to be legitimate system is returned.
  */
@@ -48,7 +49,12 @@ public class ForegroundDetector {
         this.activityManager = activityManager;
     }
 
-    // Figure out what uid should be charged for screen usage.
+
+    /**
+     * Figure out what uid should be charged for screen usage.
+     *
+     * @return uid of the app in foreground
+     */
     public int getForegroundUid() {
         SystemInfo sysInfo = SystemInfo.getInstance();
         List<ActivityManager.RunningAppProcessInfo> appProcs =
