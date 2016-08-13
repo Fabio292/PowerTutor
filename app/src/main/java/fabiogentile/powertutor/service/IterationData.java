@@ -24,7 +24,8 @@ import android.util.SparseArray;
 import fabiogentile.powertutor.util.Recycler;
 import fabiogentile.powertutor.util.SystemInfo;
 
-/* Class that encloses physical hardware power data as well as estimated power
+/**
+ * Class that encloses physical hardware power data as well as estimated power
  * data for each uid that contributes a non-negligable amount of power for this
  * component.
  */

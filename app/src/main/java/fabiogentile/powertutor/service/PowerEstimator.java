@@ -71,23 +71,20 @@ public class PowerEstimator implements Runnable {
                     "in-serviceemergency-onlyout-of-servicepower-offdisconnectedconnecting" +
                     "associateconnectedsuspendedphone-callservicenetworkbegin.0123456789" +
                     "GPSAudioWifi3GLCDCPU-power ";
+    private static final int NOTIFICATION_UPDATE_INTERVAL = 15; //When update notification
     private UMLoggerService context;
     private SharedPreferences prefs;
     private boolean plugged;
-
     private Vector<PowerComponent> powerComponents;
     private Vector<PowerFunction> powerFunctions;
     private Vector<HistoryBuffer> histories;
     private Map<Integer, String> uidAppIds;
-
     // Miscellaneous data.
     private HistoryBuffer oledScoreHistory;
-
     private Object fileWriteLock = new Object();
     private LogUploader logUploader;
     private OutputStreamWriter logStream;
     private DeflaterOutputStream deflateStream;
-
     private Object iterationLock = new Object();
     private long lastWrittenIteration;
 
@@ -97,6 +94,7 @@ public class PowerEstimator implements Runnable {
         powerComponents = new Vector<PowerComponent>();
         powerFunctions = new Vector<PowerFunction>();
         uidAppIds = new HashMap<Integer, String>();
+
         PhoneSelector.generateComponents(context, powerComponents, powerFunctions);
 
         histories = new Vector<HistoryBuffer>();
@@ -110,22 +108,23 @@ public class PowerEstimator implements Runnable {
     }
 
     private void openLog(boolean init) {
-    /* Open up the log file if possible. */
+        /* Open up the log file if possible. */
         try {
-            String logFilename = context.getFileStreamPath(
-                    "PowerTrace.log").getAbsolutePath();
+            String logFilename = context.getFileStreamPath("PowerTrace.log").getAbsolutePath();
+
             if (init && prefs.getBoolean("sendPermission", true) &&
                     new File(logFilename).length() > 0) {
-        /* There is data to send.  Make sure that gets going in the sending
-         * process before we write over any old logs.
-         */
+                /* There is data to send.  Make sure that gets going in the sending
+                 * process before we write over any old logs.
+                 */
                 logUploader.upload(logFilename);
             }
+
             Deflater deflater = new Deflater();
             deflater.setDictionary(DEFLATE_DICTIONARY.getBytes());
-            deflateStream = new DeflaterOutputStream(
-                    new FileOutputStream(logFilename));
+            deflateStream = new DeflaterOutputStream(new FileOutputStream(logFilename));
             logStream = new OutputStreamWriter(deflateStream);
+
         } catch (IOException e) {
             logStream = null;
             Log.e(TAG, "Failed to open log file.  No log will be kept.");
@@ -139,63 +138,72 @@ public class PowerEstimator implements Runnable {
         SystemInfo sysInfo = SystemInfo.getInstance();
         PackageManager pm = context.getPackageManager();
         BatteryStats bst = BatteryStats.getInstance();
-
-        int components = powerComponents.size();
-        long beginTime = SystemClock.elapsedRealtime();
-        for (int i = 0; i < components; i++) {
-            powerComponents.get(i).init(beginTime, ITERATION_INTERVAL);
-            powerComponents.get(i).start();
-        }
-        IterationData[] dataTemp = new IterationData[components];
-
         PhoneConstants phoneConstants = PhoneSelector.getConstants(context);
+
+        //Initialize each component
+        int componentsNumber = powerComponents.size();
+        long beginTime = SystemClock.elapsedRealtime();
+        for (int i = 0; i < componentsNumber; i++) {
+            powerComponents.get(i).init(beginTime, ITERATION_INTERVAL);
+            // Start the thread for the component
+            powerComponents.get(i).start(); // SPAWN THREAD
+        }
+        IterationData[] dataTemp = new IterationData[componentsNumber];
+
         long[] memInfo = new long[4];
 
+        // TODO: 13/08/16 Check if this phone has OLED? don't think it's a great improvement
         int oledId = -1;
-        for (int i = 0; i < components; i++) {
+        for (int i = 0; i < componentsNumber; i++) {
             if ("OLED".equals(powerComponents.get(i).getComponentName())) {
                 oledId = i;
                 break;
             }
         }
 
+        // Last battery current measured (in uAh)
         double lastCurrent = -1;
 
         /* Indefinitely collect data on each of the power components. */
         boolean firstLogIteration = true;
         for (long iter = -1; !Thread.interrupted(); ) {
             long curTime = SystemClock.elapsedRealtime();
-          /* Compute the next iteration that we can make the ending of.  We wait
-             for the end of the iteration so that the components had a chance to
-             collect data already.
-           */
-            iter = Math.max(iter + 1,
-                    (curTime - beginTime) / ITERATION_INTERVAL);
+
+            /* Compute the next iteration that we can make the ending of.  We wait
+             * for the end of the iteration so that the components had a chance to
+             * collect data already.
+             */
+            iter = Math.max(iter + 1, (curTime - beginTime) / ITERATION_INTERVAL);
+
             /* Sleep until the next iteration completes. */
             try {
-                Thread.currentThread().sleep(
-                        beginTime + (iter + 1) * ITERATION_INTERVAL - curTime);
+                Thread.currentThread().sleep(beginTime + (iter + 1) * ITERATION_INTERVAL - curTime);
             } catch (InterruptedException e) {
                 break;
             }
 
             int totalPower = 0;
-            for (int i = 0; i < components; i++) {
+            //<editor-fold desc="Power Calculation">
+            // Collect power for each component
+            for (int i = 0; i < componentsNumber; i++) {
                 PowerComponent comp = powerComponents.get(i);
                 IterationData data = comp.getData(iter);
+
                 dataTemp[i] = data;
                 if (data == null) {
-                  /* No data present for this timestamp.  No power charged.
-                   */
+                    //No data present for this timestamp.  No power charged.
                     continue;
                 }
 
                 SparseArray<PowerData> uidPower = data.getUidPowerData();
+                //Iterage through each uid for the component i
                 for (int j = 0; j < uidPower.size(); j++) {
                     int uid = uidPower.keyAt(j);
                     PowerData powerData = uidPower.valueAt(j);
                     int power = (int) powerFunctions.get(i).calculate(powerData);
+
                     powerData.setCachedPower(power);
+                    //Add infromation to uid history
                     histories.get(i).add(uid, iter, power);
                     if (uid == SystemInfo.AID_ALL) {
                         totalPower += power;
@@ -208,51 +216,57 @@ public class PowerEstimator implements Runnable {
                     }
                 }
             }
+            //</editor-fold>
 
-            /* Update the uid set. */
+            //<editor-fold desc="Update UID set">
             synchronized (fileWriteLock) {
                 synchronized (uidAppIds) {
-                    for (int i = 0; i < components; i++) {
+                    for (int i = 0; i < componentsNumber; i++) {
                         IterationData data = dataTemp[i];
                         if (data == null) {
                             continue;
                         }
+
                         SparseArray<PowerData> uidPower = data.getUidPowerData();
                         for (int j = 0; j < uidPower.size(); j++) {
                             int uid = uidPower.keyAt(j);
-                            if (uid < SystemInfo.AID_APP) {
+                            if (uid < SystemInfo.AID_APP) { // System app
                                 uidAppIds.put(uid, null);
-                            } else {
-                              /* We only want to update app names when logging so the associcate
-                               * message gets written.
-                               */
+                            } else { //User app
+                                /* We only want to update app names when logging so the associcate
+                                 * message gets written.
+                                 */
                                 String appId = uidAppIds.get(uid);
                                 String newAppId = sysInfo.getAppId(uid, pm);
-                                if (!firstLogIteration && logStream != null &&
-                                        (appId == null || !appId.equals(newAppId))) {
+                                uidAppIds.put(uid, newAppId);
+
+                                if (!firstLogIteration && logStream != null && (appId == null || !appId.equals(newAppId))) {
                                     try {
                                         logStream.write("associate " + uid + " " + newAppId + "\n");
                                     } catch (IOException e) {
                                         Log.w(TAG, "Failed to write to log file");
                                     }
                                 }
-                                uidAppIds.put(uid, newAppId);
                             }
                         }
                     }
                 }
             }
+            //</editor-fold>
 
             synchronized (iterationLock) {
                 lastWrittenIteration = iter;
             }
 
-            /* Update the icon display every 15 iterations. */
-            if (iter % 15 == 14) {
+            //<editor-fold desc="Notification update">
+            // Update the icon display every NOTIFICATION_UPDATE_INTERVAL iterations
+            if (iter % NOTIFICATION_UPDATE_INTERVAL == (NOTIFICATION_UPDATE_INTERVAL - 1)) {
                 final double POLY_WEIGHT = 0.02;
-                int count = 0;
-                int[] history = getComponentHistory(5 * 60, -1,
-                        SystemInfo.AID_ALL, -1);
+                int count = 0; // Number of history data not null
+
+                // Get info from all component for all UID
+                int[] history = getComponentHistory(5 * 60, -1, SystemInfo.AID_ALL, -1); // TODO: 13/08/16 5 * 60 ??
+
                 double weightedAvgPower = 0;
                 for (int i = history.length - 1; i >= 0; i--) {
                     if (history[i] != 0) {
@@ -262,38 +276,35 @@ public class PowerEstimator implements Runnable {
                     }
                 }
                 double avgPower = -1;
-                if (count != 0) {
-                    avgPower = weightedAvgPower /
-                            (1.0 - Math.pow(1.0 - POLY_WEIGHT, count));
-                }
+                if (count != 0)
+                    avgPower = weightedAvgPower / (1.0 - Math.pow(1.0 - POLY_WEIGHT, count));
+
                 avgPower *= 1000;
-
-                context.updateNotification((int) Math.min(8, 1 +
-                                8 * avgPower / phoneConstants.maxPower()),
-                        avgPower);
+                int notificationLevel = (int) Math.min(8, 1 + 8 * avgPower / phoneConstants.maxPower());
+                context.updateNotification(notificationLevel, avgPower);
             }
+            //</editor-fold>
 
-            /* Update the widget. */
-            if (iter % 60 == 0) {
+            // Update the widget
+            if (iter % 60 == 0) { // TODO: 13/08/16 remove widget?
                 PowerWidget.updateWidget(context, this);
             }
 
+            //<editor-fold desc="Log information">
             if (bst.hasCurrent()) {
                 double current = bst.getCurrent();
-                if (current != lastCurrent) {
+                if (current != lastCurrent) { // If battery current drawn has changed
                     writeToLog("batt_current " + current + "\n");
                     lastCurrent = current;
                 }
             }
-            if (iter % (5 * 60) == 0) {
-                if (bst.hasTemp()) {
+            if (iter % (5 * 60) == 0) { // Every 300 iterations
+                if (bst.hasTemp())
                     writeToLog("batt_temp " + bst.getTemp() + "\n");
-                }
-                if (bst.hasCharge()) {
+                if (bst.hasCharge())
                     writeToLog("batt_charge " + bst.getCharge() + "\n");
-                }
             }
-            if (iter % (30 * 60) == 0) {
+            if (iter % (30 * 60) == 0) { // Every 1800 iterations
                 if (Settings.System.getInt(context.getContentResolver(),
                         "screen_brightness_mode", 0) != 0) {
                     writeToLog("setting_brightness automatic\n");
@@ -311,6 +322,7 @@ public class PowerEstimator implements Runnable {
                 if (timeout != -1) {
                     writeToLog("setting_screen_timeout " + timeout + "\n");
                 }
+
                 String httpProxy = Settings.Secure.getString(
                         context.getContentResolver(),
                         Settings.Secure.HTTP_PROXY);
@@ -318,77 +330,81 @@ public class PowerEstimator implements Runnable {
                     writeToLog("setting_httpproxy " + httpProxy + "\n");
                 }
             }
+            //</editor-fold>
 
-          /* Let's only grab memory information every 10 seconds to try to keep log
-           * file size down and the notice_data table size down.
-           */
+            /* Let's only grab memory information every 10 seconds to try to keep log
+             * file size down and the notice_data table size down.
+             */
             boolean hasMem = false;
             if (iter % 10 == 0) {
                 hasMem = sysInfo.getMemInfo(memInfo);
             }
 
+            //<editor-fold desc="Finalize LOG and upload">
             synchronized (fileWriteLock) {
-                if (logStream != null) try {
-                    if (firstLogIteration) {
-                        firstLogIteration = false;
-                        logStream.write("time " + System.currentTimeMillis() + "\n");
-                        Calendar cal = new GregorianCalendar();
-                        logStream.write("localtime_offset " +
-                                (cal.get(Calendar.ZONE_OFFSET) +
-                                        cal.get(Calendar.DST_OFFSET)) + "\n");
-                        logStream.write("model " + phoneConstants.modelName() + "\n");
-                        if (NotificationService.available()) {
-                            logStream.write("notifications-active\n");
-                        }
-                        if (bst.hasFullCapacity()) {
-                            logStream.write("batt_full_capacity " + bst.getFullCapacity()
-                                    + "\n");
-                        }
-                        synchronized (uidAppIds) {
-                            for (int uid : uidAppIds.keySet()) {
-                                if (uid < SystemInfo.AID_APP) {
-                                    continue;
-                                }
-                                logStream.write("associate " + uid + " " + uidAppIds.get(uid)
-                                        + "\n");
-                            }
-                        }
-                    }
-                    logStream.write("begin " + iter + "\n");
-                    logStream.write("total-power " + (long) Math.round(totalPower) + '\n');
-                    if (hasMem) {
-                        logStream.write("meminfo " + memInfo[0] + " " + memInfo[1] +
-                                " " + memInfo[2] + " " + memInfo[3] + "\n");
-                    }
-                    for (int i = 0; i < components; i++) {
-                        IterationData data = dataTemp[i];
-                        if (data != null) {
-                            String name = powerComponents.get(i).getComponentName();
-                            SparseArray<PowerData> uidData = data.getUidPowerData();
-                            for (int j = 0; j < uidData.size(); j++) {
-                                int uid = uidData.keyAt(j);
-                                PowerData powerData = uidData.valueAt(j);
-                                if (uid == SystemInfo.AID_ALL) {
-                                    logStream.write(name + " " + (long) Math.round(
-                                            powerData.getCachedPower()) + "\n");
-                                    powerData.writeLogDataInfo(logStream);
-                                } else {
-                                    logStream.write(name + "-" + uid + " " + (long) Math.round(
-                                            powerData.getCachedPower()) + "\n");
+                if (logStream != null) {
+                    try {
+                        if (firstLogIteration) {
+                            firstLogIteration = false;
+                            logStream.write("time " + System.currentTimeMillis() + "\n");
+                            Calendar cal = new GregorianCalendar();
+                            logStream.write("localtime_offset " +
+                                    (cal.get(Calendar.ZONE_OFFSET) +
+                                            cal.get(Calendar.DST_OFFSET)) + "\n");
+                            logStream.write("model " + phoneConstants.modelName() + "\n");
+
+                            if (NotificationService.available())
+                                logStream.write("notifications-active\n");
+                            if (bst.hasFullCapacity())
+                                logStream.write("batt_full_capacity " + bst.getFullCapacity() + "\n");
+
+                            synchronized (uidAppIds) {
+                                for (int uid : uidAppIds.keySet()) {
+                                    if (uid < SystemInfo.AID_APP) {
+                                        continue;
+                                    }
+                                    logStream.write("associate " + uid + " " + uidAppIds.get(uid)
+                                            + "\n");
                                 }
                             }
-                            data.recycle();
                         }
+
+                        logStream.write("begin " + iter + "\n");
+                        logStream.write("total-power " + (long) Math.round(totalPower) + '\n');
+                        if (hasMem)
+                            logStream.write("meminfo " + memInfo[0] + " " + memInfo[1] +
+                                    " " + memInfo[2] + " " + memInfo[3] + "\n");
+
+                        // Log information for components
+                        for (int i = 0; i < componentsNumber; i++) {
+                            IterationData data = dataTemp[i];
+                            if (data != null) {
+                                String name = powerComponents.get(i).getComponentName();
+                                SparseArray<PowerData> uidData = data.getUidPowerData();
+                                for (int j = 0; j < uidData.size(); j++) {
+                                    int uid = uidData.keyAt(j);
+                                    PowerData powerData = uidData.valueAt(j);
+                                    if (uid == SystemInfo.AID_ALL) {
+                                        logStream.write(name + " " + (long) Math.round(
+                                                powerData.getCachedPower()) + "\n");
+                                        powerData.writeLogDataInfo(logStream);
+                                    } else {
+                                        logStream.write(name + "-" + uid + " " + (long) Math.round(
+                                                powerData.getCachedPower()) + "\n");
+                                    }
+                                }
+                                data.recycle();
+                            }
+                        }
+                    } catch (IOException e) {
+                        Log.w(TAG, "Failed to write to log file");
                     }
-                } catch (IOException e) {
-                    Log.w(TAG, "Failed to write to log file");
                 }
 
                 if (iter % 15 == 0 && prefs.getBoolean("sendPermission", true)) {
-                   /* Allow for LogUploader to decide if the log needs to be uploaded and
-                    * begin uploading if it decides it's necessary.
-                    */
-
+                    /* Allow for LogUploader to decide if the log needs to be uploaded and
+                     * begin uploading if it decides it's necessary.
+                     */
                     if (logUploader.shouldUpload()) {
                         try {
                             logStream.close();
@@ -396,37 +412,42 @@ public class PowerEstimator implements Runnable {
                             Log.w(TAG, "Failed to flush and close log stream");
                         }
                         logStream = null;
-                        logUploader.upload(context.getFileStreamPath(
-                                "PowerTrace.log").getAbsolutePath());
+                        logUploader.upload(context.getFileStreamPath("PowerTrace.log").getAbsolutePath());
                         openLog(false);
                         firstLogIteration = true;
                     }
                 }
             }
+            //</editor-fold>
         }
 
-        /* Blank the widget's display and turn off power button. */
+        // LOOP ENDED
+
+        // Blank the widget's display and turn off power button
         PowerWidget.updateWidgetDone(context);
 
-        /* Have all of the power component threads exit. */
+        // Have all of the power component threads exit
         logUploader.interrupt();
-        for (int i = 0; i < components; i++) {
+
+        // Interrupt power component calculator
+        for (int i = 0; i < componentsNumber; i++) {
             powerComponents.get(i).interrupt();
         }
+
         try {
             logUploader.join();
         } catch (InterruptedException e) {
         }
-        for (int i = 0; i < components; i++) {
+
+        // Wait power component end
+        for (int i = 0; i < componentsNumber; i++) {
             try {
                 powerComponents.get(i).join();
             } catch (InterruptedException e) {
             }
         }
 
-        /* Close the logstream so that everything gets flushed and written to file
-         * before we have to quit.
-         */
+        // Close logstream and flush everything to file
         synchronized (fileWriteLock) {
             if (logStream != null) try {
                 logStream.close();
@@ -481,8 +502,16 @@ public class PowerEstimator implements Runnable {
         return ret;
     }
 
-    public int[] getComponentHistory(int count, int componentId, int uid,
-                                     long iteration) {
+    /**
+     * Get historical information about a specific component
+     *
+     * @param count       How many data retrieve
+     * @param componentId The component we want to get info about
+     * @param uid         Specify for wich UID get info
+     * @param iteration
+     * @return
+     */
+    public int[] getComponentHistory(int count, int componentId, int uid, long iteration) {
         if (iteration == -1) synchronized (iterationLock) {
             iteration = lastWrittenIteration;
         }

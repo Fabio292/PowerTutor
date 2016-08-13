@@ -20,6 +20,7 @@ Please send inquiries to powertutor@umich.edu
 package fabiogentile.powertutor.phone;
 
 import android.content.Context;
+import android.util.Log;
 
 import fabiogentile.powertutor.components.Audio.AudioData;
 import fabiogentile.powertutor.components.CPU.CpuData;
@@ -35,6 +36,8 @@ import fabiogentile.powertutor.components.Wifi;
 import fabiogentile.powertutor.components.Wifi.WifiData;
 
 public class HammerheadPowerCalculator implements PhonePowerCalculator {
+
+    private static final String TAG = "HammerheadPC";
     protected PhoneConstants coeffs;
 
     public HammerheadPowerCalculator(Context context) {
@@ -63,8 +66,11 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     }
 
     public double getLcdPower(LcdData data) {
-        return data.screenOn ?
+        double ret = data.screenOn ?
                 coeffs.lcdBrightness() * data.brightness + coeffs.lcdBacklight() : 0;
+
+        Log.i(TAG, "getLcdPower: " + ret);
+        return ret;
     }
 
     public double getOledPower(OledData data) {
@@ -118,14 +124,14 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
             double[] linkRatios = coeffs.wifiLinkRatios();
             double ratio;
             if (linkSpeeds.length == 1) {
-        /* If there is only one set speed we have to use its ratio as we have
-         * nothing else to go on.
-         */
+                /* If there is only one set speed we have to use its ratio as we have
+                 * nothing else to go on.
+                 */
                 ratio = linkRatios[0];
             } else {
-        /* Find the two nearest speed/ratio pairs and linearly interpolate
-         * the ratio for this link speed.
-         */
+                /* Find the two nearest speed/ratio pairs and linearly interpolate
+                 * the ratio for this link speed.
+                 */
                 int ind = upperBound(linkSpeeds, data.linkSpeed);
                 if (ind == 0) ind++;
                 if (ind == linkSpeeds.length) ind--;

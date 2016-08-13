@@ -43,7 +43,6 @@ import java.lang.reflect.Method;
 import fabiogentile.powertutor.ICounterService;
 import fabiogentile.powertutor.R;
 import fabiogentile.powertutor.ui.UMLogger;
-import fabiogentile.powertutor.util.BatteryStats;
 import fabiogentile.powertutor.util.SystemInfo;
 
 public class UMLoggerService extends Service {
@@ -375,26 +374,27 @@ public class UMLoggerService extends Service {
         notification.icon = R.drawable.level;
         notification.iconLevel = level;
 
-        // If we know how much charge the battery has left we'll override the
-        // normal icon with one that indicates how much time the user can expect
-        // left.
-        BatteryStats bst = BatteryStats.getInstance();
-        if (bst.hasCharge() && bst.hasVoltage()) {
-            double charge = bst.getCharge();
-            double volt = bst.getVoltage();
-            if (charge > 0 && volt > 0) {
-                notification.icon = R.drawable.time;
-
-                double minutes = charge * volt / (totalPower / 1000) / 60;
-                if (minutes < 55) {
-                    notification.iconLevel = 1 +
-                            (int) Math.max(0, Math.round(minutes / 10.0) - 1);
-                } else {
-                    notification.iconLevel = (int) Math.min(13,
-                            6 + Math.max(0, Math.round(minutes / 60.0) - 1));
-                }
-            }
-        }
+        /* If we know how much charge the battery has left we'll override the
+           normal icon with one that indicates how much time the user can expect
+           left.
+        */
+//        BatteryStats bst = BatteryStats.getInstance();
+//        if (bst.hasCharge() && bst.hasVoltage()) {
+//            double charge = bst.getCharge();
+//            double volt = bst.getVoltage();
+//            if (charge > 0 && volt > 0) {
+//                notification.icon = R.drawable.time;
+//
+//                double minutes = charge * volt / (totalPower / 1000) / 60;
+//                if (minutes < 55) {
+//                    notification.iconLevel = 1 +
+//                            (int) Math.max(0, Math.round(minutes / 10.0) - 1);
+//                } else {
+//                    notification.iconLevel = (int) Math.min(13,
+//                            6 + Math.max(0, Math.round(minutes / 60.0) - 1));
+//                }
+//            }
+//        }
 
         CharSequence contentTitle = "PowerTutor";
         CharSequence contentText = "Total Power: " + (int) Math.round(totalPower) +
@@ -408,11 +408,11 @@ public class UMLoggerService extends Service {
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
                 notificationIntent, 0);
 
-
+        // TODO: 13/08/16 keep code for honeycomb (11)?
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.HONEYCOMB) {
-        /* the next two lines initialize the Notification, using the
-         * configurations above.
-         */
+            /* the next two lines initialize the Notification, using the
+             * configurations above.
+             */
             try {
                 // REFLECTION
                 Method deprecatedMethod = notification.getClass().getMethod("setLatestEventInfo", Context.class, CharSequence.class, CharSequence.class, PendingIntent.class);

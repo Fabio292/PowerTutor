@@ -57,12 +57,16 @@ public abstract class PowerComponent extends Thread {
         return false;
     }
 
-    /* Called when the thread running this interface is asked to exit.
+    /**
+     * Called when the thread running this interface is asked to exit.
      */
     protected void onExit() {
     }
 
-    /* This is called once at the begginning of the daemon loop.
+    /**
+     * This is called once at the begginning of the daemon loop.
+     * @param beginTime timestamp of initialization
+     * @param iterationInterval ms between iteration
      */
     public void init(long beginTime, long iterationInterval) {
         this.beginTime = beginTime;
@@ -71,7 +75,9 @@ public abstract class PowerComponent extends Thread {
         iteration1 = iteration2 = -1;
     }
 
-    /* Runs the daemon loop that collects data for this component. */
+    /**
+     * Runs the daemon loop that collects data for this component.
+     */
     public void run() {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_MORE_FAVORABLE);
 

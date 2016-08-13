@@ -434,20 +434,35 @@ public class SystemInfo {
         return -1L;
     }
 
+    /**
+     * Search package name from uid using (if possible) cached data
+     *
+     * @param uid uid we want to know the name
+     * @param pm  package manager
+     * @return
+     */
     public synchronized String getAppId(int uid, PackageManager pm) {
+        // Check if present in cache
         UidCacheEntry cacheEntry = uidCache.get(uid);
         if (cacheEntry == null) {
+            // If not, add to cache
             cacheEntry = new UidCacheEntry();
             uidCache.put(uid, cacheEntry);
         }
+
         cacheEntry.clearIfExpired();
+
+        // Search if information in cache is valid
         if (cacheEntry.getAppId() != null) {
             return cacheEntry.getAppId();
         }
+
+        // If not, search manually
         String result = getAppIdNoCache(uid, pm);
         cacheEntry.setAppId(result);
         return result;
     }
+
 
     private String getAppIdNoCache(int uid, PackageManager pm) {
         if (uid < SystemInfo.AID_APP) {

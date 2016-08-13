@@ -94,8 +94,7 @@ public class LCD extends PowerComponent {
 
         int brightness;
         if (brightnessFile != null) {
-            brightness = (int) SystemInfo.getInstance()
-                    .readLongFromFile(brightnessFile);
+            brightness = (int) SystemInfo.getInstance().readLongFromFile(brightnessFile);
         } else {
             try {
                 brightness = Settings.System.getInt(context.getContentResolver(),
