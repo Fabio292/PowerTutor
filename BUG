@@ -1,1 +1,2 @@
 -Il consumo dell'lcd viene assegnato all'uid corretto solo per l'app powertutor stessa, altrimenti è il generico 1000
+-Stima della cpu quando lockato è troppo lenta e salta delle iterazioni a volte

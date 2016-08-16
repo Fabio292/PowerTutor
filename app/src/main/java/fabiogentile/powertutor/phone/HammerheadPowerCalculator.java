@@ -38,6 +38,8 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
 
     private static final String TAG = "HammerheadPC";
     protected PhoneConstants coeffs;
+    private double[] powerRatios;
+    private double[] freqs;
 
     public HammerheadPowerCalculator(Context context) {
         this(new HammerheadConstants(context));
@@ -45,6 +47,8 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
 
     protected HammerheadPowerCalculator(PhoneConstants coeffs) {
         this.coeffs = coeffs;
+        this.powerRatios = coeffs.cpuPowerRatios();
+        this.freqs = coeffs.cpuFreqs();
     }
 
     /* Returns the largest index y such that if x were inserted into A (which
@@ -67,6 +71,9 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     public double getLcdPower(LcdData data) {
         double ret = data.screenOn ?
                 coeffs.lcdBrightness() * data.brightness + coeffs.lcdBacklight() : 0;
+
+        //Log.i(TAG, "getLcdPower: " + ret);
+
         return ret;
     }
 
@@ -75,27 +82,40 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     }
 
     public double getCpuPower(CpuData data) {
-    /* Find the two nearest cpu frequency and linearly interpolate
-     * the power ratio for that frequency.
-     */
-        double[] powerRatios = coeffs.cpuPowerRatios();
-        double[] freqs = coeffs.cpuFreqs();
-        double ratio;
-        if (powerRatios.length == 1) {
-            ratio = powerRatios[0];
-        } else {
-            double sfreq = data.freq;
-            if (sfreq < freqs[0]) sfreq = freqs[0];
-            if (sfreq > freqs[freqs.length - 1]) sfreq = freqs[freqs.length - 1];
+        /* Find the two nearest cpu frequency and linearly interpolate
+         * the power ratio for that frequency.
+         */
+        double ratio = powerRatios[0];
+        double ret = 0;
 
-            int ind = upperBound(freqs, sfreq);
-            if (ind == 0) ind++;
-            if (ind == freqs.length) ind--;
-            ratio = powerRatios[ind - 1] + (powerRatios[ind] - powerRatios[ind - 1]) /
-                    (freqs[ind] - freqs[ind - 1]) *
-                    (sfreq - freqs[ind - 1]);
+        // TODO: 13/08/16 ma le frequenze non sono sempre le stesse?? c'è bisogno di interpolare?
+//        if (powerRatios.length == 1) {
+//            ratio = powerRatios[0];
+//        } else {
+//            double sfreq = data.freq;
+//            if (sfreq < freqs[0])
+//                sfreq = freqs[0];
+//            if (sfreq > freqs[freqs.length - 1])
+//                sfreq = freqs[freqs.length - 1];
+//
+//            int ind = upperBound(freqs, sfreq);
+//            if (ind == 0) ind++;
+//            if (ind == freqs.length) ind--;
+//            ratio = powerRatios[ind - 1] + (powerRatios[ind] - powerRatios[ind - 1]) / (freqs[ind] - freqs[ind - 1]) * (sfreq - freqs[ind - 1]);
+//        }
+
+
+        // TODO: 16/08/16 HashMap?
+        for (int i = 0; i < freqs.length; i++) {
+            if (freqs[i] == data.freq) {
+                ratio = powerRatios[i];
+                break;
+            }
         }
-        return Math.max(0, ratio * (data.usrPerc + data.sysPerc));
+
+        ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
+        //Log.i(TAG, "getCpuPower: " + ret);
+        return ret;
     }
 
     public double getAudioPower(AudioData data) {

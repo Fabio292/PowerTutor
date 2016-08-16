@@ -196,12 +196,17 @@ public class PowerEstimator implements Runnable {
                 }
 
                 SparseArray<PowerData> uidPower = data.getUidPowerData();
+                Log.i(TAG, "run: [" + comp.getComponentName() + "] + uid# " + uidPower.size());
                 //Iterage through each uid for the component i
                 for (int j = 0; j < uidPower.size(); j++) {
                     int uid = uidPower.keyAt(j);
                     PowerData powerData = uidPower.valueAt(j);
                     int power = (int) powerFunctions.get(i).calculate(powerData);
-                    Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
+
+//                    if(uid >= SystemInfo.AID_APP)
+//                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + sysInfo.getAppId(uid, pm) + " -> " + power);
+//                    else
+//                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
 
                     powerData.setCachedPower(power);
                     //Add infromation to uid history
