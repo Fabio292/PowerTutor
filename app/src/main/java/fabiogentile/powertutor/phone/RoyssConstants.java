@@ -9,7 +9,7 @@ import fabiogentile.powertutor.components.Sensors;
 public class RoyssConstants extends HammerheadConstants {
     private static final double[] arrayCpuPowerRatios = {55.0, 148.0, 249.0, 408.0, 577.0};
     //Freqs in MHz
-    private static final double[] arrayCpuFreqs = {200.0, 500.0, 800.0, 1000.0, 1200.0};
+    private static final double[] arrayCpuFreqs = {245.76, 320.0, 480.0, 600.0, 1008.0};
 
     private static final double[] arrayGpsStatePower = {0.0, 173.55, 429.55};
 

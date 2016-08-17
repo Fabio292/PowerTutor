@@ -74,7 +74,7 @@ public class PhoneSelector {
     }
 
     public static int getPhoneType() {
-        Log.i(TAG, "getPhoneType: " + Build.DEVICE);
+        //Log.i(TAG, "getPhoneType: " + Build.DEVICE);
 
         if (Build.DEVICE.startsWith("dream")) return PHONE_DREAM;
         if (Build.DEVICE.startsWith("sapphire")) return PHONE_SAPPHIRE;
