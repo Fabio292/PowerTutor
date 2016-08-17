@@ -35,6 +35,7 @@ public class PhoneSelector {
     public static final int PHONE_SAPPHIRE = 2; /* G2 */
     public static final int PHONE_PASSION = 3; /* Nexus One */
     public static final int PHONE_HAMMERHEAD = 4; /* Nexus 5 */
+    public static final int PHONE_ROYSS = 5; /* Samsung GT-S6310N */
 
     /* A hard-coded list of phones that have OLED screens. */
     public static final String[] OLED_PHONES = {
@@ -73,12 +74,14 @@ public class PhoneSelector {
     }
 
     public static int getPhoneType() {
-        //Log.v(TAG, "getPhoneType: " + Build.DEVICE);
+        Log.i(TAG, "getPhoneType: " + Build.DEVICE);
 
         if (Build.DEVICE.startsWith("dream")) return PHONE_DREAM;
         if (Build.DEVICE.startsWith("sapphire")) return PHONE_SAPPHIRE;
         if (Build.DEVICE.startsWith("passion")) return PHONE_PASSION;
         if (Build.DEVICE.startsWith("hammerhead")) return PHONE_HAMMERHEAD;
+        if (Build.DEVICE.startsWith("royssnfc")) return PHONE_ROYSS;
+
 
         return PHONE_UNKNOWN;
     }
@@ -93,6 +96,8 @@ public class PhoneSelector {
                 return new PassionConstants(context);
             case PHONE_HAMMERHEAD:
                 return new HammerheadConstants(context);
+            case PHONE_ROYSS:
+                return new RoyssConstants(context);
             default:
                 boolean oled = hasOled();
                 Log.w(TAG, "Phone type not recognized (" + Build.DEVICE + "), using " +
@@ -112,6 +117,8 @@ public class PhoneSelector {
                 return new PassionPowerCalculator(context);
             case PHONE_HAMMERHEAD:
                 return new HammerheadPowerCalculator(context);
+            case PHONE_ROYSS:
+                return new RoyssPowerCalculator(context);
             default:
                 boolean oled = hasOled();
                 Log.w(TAG, "Phone type not recognized (" + Build.DEVICE + "), using " +

@@ -111,6 +111,23 @@ public class SystemInfo {
             PROC_SPACE_TERM | PROC_OUT_LONG,                  // 13: utime
             PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
     };
+    /*    private static final int[] PROCESS_STATS_FORMAT = new int[]{
+                PROC_SPACE_TERM | PROC_OUT_STRING,
+                PROC_SPACE_TERM | PROC_OUT_STRING,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,
+                PROC_SPACE_TERM | PROC_OUT_LONG,                  // 13: utime
+                PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
+        };*/
     private static final int[] PROCESS_TOTAL_STATS_FORMAT = new int[]{
             PROC_SPACE_TERM,
             PROC_SPACE_TERM | PROC_OUT_LONG,
@@ -152,6 +169,7 @@ public class SystemInfo {
      */
     private SystemInfo() {
         Log.i(TAG, "SystemInfo: CREATO");
+
         //<editor-fold desc="REFLECTION">
         try {
             fieldUid = ActivityManager.RunningAppProcessInfo.class.getField("uid");
@@ -285,12 +303,16 @@ public class SystemInfo {
         return getUidForPid(app.pid);
     }
 
-    /* lastPids can be null.  It is just used to avoid memory reallocation if
+    /**
+     * lastPids can be null.  It is just used to avoid memory reallocation if
      * at all possible. Returns null on failure. If lastPids can hold the new
      * pid list the extra entries will be filled with -1 at the end.
+     * @param lastPids
+     * @return
      */
     public int[] getPids(int[] lastPids) {
-        if (methodGetPids == null) return manualGetInts("/proc", lastPids);
+        if (methodGetPids == null)
+            return manualGetInts("/proc", lastPids);
         try {
             return (int[]) methodGetPids.invoke(null, "/proc", lastPids);
         } catch (IllegalAccessException e) {
@@ -354,6 +376,16 @@ public class SystemInfo {
      * with the user time for this pid and times[INDEX_SYS_TIME] will be filled
      * with the sys time for this pid.  Returns true on sucess.
      */
+
+    /**
+     * times should contain two elements.  times[INDEX_USER_TIME] will be filled
+     * with the user time for this pid and times[INDEX_SYS_TIME] will be filled
+     * with the sys time for this pid.  Returns true on sucess.
+     *
+     * @param pid
+     * @param times
+     * @return
+     */
     public boolean getPidUsrSysTime(int pid, long[] times) {
         if (methodReadProcFile == null) return false;
         try {
@@ -368,10 +400,13 @@ public class SystemInfo {
         return false;
     }
 
-    /* times should contain seven elements.  times[INDEX_USER_TIME] will be filled
+    /**
+     * Times should contain seven elements.  times[INDEX_USER_TIME] will be filled
      * with the total user time, times[INDEX_SYS_TIME] will be filled
      * with the total sys time, and times[INDEX_TOTAL_TIME] will have the total
      * time (including idle cycles).  Returns true on success.
+     * @param times
+     * @return
      */
     public boolean getUsrSysTotalTime(long[] times) {
         if (methodReadProcFile == null) return false;

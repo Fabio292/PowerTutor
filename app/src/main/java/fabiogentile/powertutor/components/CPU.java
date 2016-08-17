@@ -58,6 +58,7 @@ public class CPU extends PowerComponent {
         IterationData result = IterationData.obtain();
         SystemInfo sysInfo = SystemInfo.getInstance();
 
+        // Get current cpu freq
         double freq = readCpuFreq(sysInfo);
         if (freq < 0) {
             Log.w(TAG, "Failed to read cpu frequency");
@@ -87,20 +88,24 @@ public class CPU extends PowerComponent {
         int pidInd = 0;
         if (pids != null) {
 
+            // Iterate through all pid
             for (int pid : pids) {
                 if (pid < 0)
                     break;
 
                 CpuStateKeeper pidState;
+                // if we've seen this Pid before, get current state for this pid
                 if (pidInd < pidStates.size() && pidStates.keyAt(pidInd) == pid) {
                     pidState = pidStates.valueAt(pidInd);
                 } else {
+                    // else create new StateKeeper and put into pidStates
                     int uid = sysInfo.getUidForPid(pid);
                     if (uid >= 0) {
+                        // New process
                         pidState = new CpuStateKeeper(uid);
                         pidStates.put(pid, pidState);
                     } else {
-                        /* Assume that this process no longer exists. */
+                        // Assume that this process no longer exists.
                         continue;
                     }
                 }
@@ -108,8 +113,8 @@ public class CPU extends PowerComponent {
 
                 if (!pidState.isStale(iteration)) {
                     /* Nothing much is going on with this pid recently.  We'll just
-                    *  assume that it's not using any of the cpu for this iteration.
-                    */
+                     * assume that it's not using any of the cpu for this iteration.
+                     */
                     pidState.updateIteration(iteration, totalTime);
                 } else if (sysInfo.getPidUsrSysTime(pid, statsBuf)) {
                     usrTime = statsBuf[SystemInfo.INDEX_USER_TIME];
@@ -123,6 +128,7 @@ public class CPU extends PowerComponent {
                     }
                 }
 
+                // Merge different PID informations for the same UID
                 CpuStateKeeper linkState = uidLinks.get(pidState.getUid());
                 if (linkState == null) {
                     uidLinks.put(pidState.getUid(), pidState);
@@ -132,40 +138,40 @@ public class CPU extends PowerComponent {
             }
         }
 
-        /* Remove processes that are no longer active. */
+        // Remove processes that are no longer active.
         for (int i = 0; i < pidStates.size(); i++) {
             if (!pidStates.valueAt(i).isAlive(iteration)) {
                 pidStates.remove(pidStates.keyAt(i--));
             }
         }
 
-        /* Collect the summed uid information. */
+        // Collect the summed uid information.
         for (int i = 0; i < uidLinks.size(); i++) {
             int uid = uidLinks.keyAt(i);
             CpuStateKeeper linkState = uidLinks.valueAt(i);
-
             CpuData uidData = CpuData.obtain();
-            predictAppUidState(uidData, linkState.getUsrPerc(),
-                    linkState.getSysPerc(), freq);
+
+            predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
             result.addUidPowerData(uid, uidData);
         }
 
         return result;
     }
 
-    /* This is the function that is responsible for predicting the cpu frequency
+
+    /**
+     * This is the function that is responsible for predicting the cpu frequency
      * state of the individual uid as though it were the only thing running.  It
      * simply is finding the lowest frequency that keeps the cpu usage under
      * 70% assuming there is a linear relationship to the cpu utilization at
      * different frequencies.
      */
-    private void predictAppUidState(CpuData uidData, double usrPerc,
-                                    double sysPerc, double freq) {
+    private void predictAppUidState(CpuData uidData, double usrPerc, double sysPerc, double freq) {
         double[] freqs = constants.cpuFreqs();
         if (usrPerc + sysPerc < 1e-6) {
-      /* Don't waste time with the binary search if there is no utilization
-       * which will be the case a lot.
-       */
+            /* Don't waste time with the binary search if there is no utilization
+             * which will be the case a lot.
+             */
             uidData.init(sysPerc, usrPerc, freqs[0]);
             return;
         }
@@ -195,15 +201,18 @@ public class CPU extends PowerComponent {
         return "CPU";
     }
 
-    /* Returns the frequency of the processor in Mhz.  If the frequency cannot
+    /**
+     * Returns the frequency of the processor in Mhz.  If the frequency cannot
      * be determined returns a negative value instead.
+     * @param sysInfo
+     * @return current frequency in mhz
      */
     private double readCpuFreq(SystemInfo sysInfo) {
         /* Try to read from the /sys/devices file first.  If that doesn't work
          * try manually inspecting the /proc/cpuinfo file.
          */
         long cpuFreqKhz = sysInfo.readLongFromFile(
-                "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq");
+                "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"); // TODO: 16/08/16 spostare nelle costanti?
         if (cpuFreqKhz != -1) {
             return cpuFreqKhz / 1000.0;
         }
@@ -294,9 +303,9 @@ public class CPU extends PowerComponent {
         }
 
         public void updateIteration(long iteration, long totalTime) {
-      /* Process is still running but actually reading the cpu utilization has
-       * been skipped this iteration to avoid wasting cpu cycles as this process
-       * has not been very active recently. */
+            /* Process is still running but actually reading the cpu utilization has
+             * been skipped this iteration to avoid wasting cpu cycles as this process
+             * has not been very active recently. */
             sumUsr = 0;
             sumSys = 0;
             deltaTotal = totalTime - lastTotal;
@@ -345,8 +354,8 @@ public class CPU extends PowerComponent {
         }
 
         public boolean isStale(long iteration) {
-            return 1L << (iteration - lastUpdateIteration) >
-                    inactiveIterations * inactiveIterations;
+            // if(2^DELTA_ITERATION > inactiveIteration^2)
+            return 1L << (iteration - lastUpdateIteration) > inactiveIterations * inactiveIterations;
         }
     }
 }
