@@ -42,6 +42,10 @@ import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import fabiogentile.powertutor.service.PowerEstimator;
+
+// TODO: 18/08/16 Riutilizzare lo stesso processo se è possibile
+// TODO: 18/08/16 nelle hashMap facio un clear o una reinserzione?
 public class SystemInfo {
     /* Uids as listed in android_filesystem_config.h */
     public static final int AID_ALL = -1;           /* A special constant we will
@@ -89,7 +93,6 @@ public class SystemInfo {
     public static final int INDEX_MEM_FREE = 1;
     public static final int INDEX_MEM_BUFFERS = 2;
     public static final int INDEX_MEM_CACHED = 3;
-    public static final int BASE_PROCESS_NUMBER = 190;  //Estimated process number at system startup
     private static final String TAG = "SystemInfo";
     private static final int[] READ_LONG_FORMAT = new int[]{
             PROC_SPACE_TERM | PROC_OUT_LONG
@@ -144,14 +147,17 @@ public class SystemInfo {
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
     };
-    private static final int HASHMAP_UPDATE_PERIOD = 2000;  //Time to call updatePidUidMap in ms
+
     private static final int STARTUP_PROCESS_NUMBER = 190;  //Estimated process number at startup
     private static SystemInfo instance = new SystemInfo();
-    private static HashMap<Integer, Integer> mapPidUidMap;
+
+    private static HashMap<Integer, Integer> mapPidUid;
+    private static HashMap<Integer, long[]> mapPidUsrSysTime;
     private static Context context;
     private static float pixelConversionScale = 1.0F;
     SparseArray<UidCacheEntry> uidCache = new SparseArray<UidCacheEntry>();
-    // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE
+
+    // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE?
     /* We are going to take advantage of the hidden API within Process.java that
      * makes use of JNI so that we can perform the top task efficiently.
      */
@@ -207,8 +213,9 @@ public class SystemInfo {
         }
         //</editor-fold>
 
-        //Instantiate the hashmap with a hypotetical number of process
-        mapPidUidMap = new HashMap<>(STARTUP_PROCESS_NUMBER);
+        //Instantiate the hashmaps with a hypotetical number of process
+        mapPidUid = new HashMap<>(STARTUP_PROCESS_NUMBER);
+        mapPidUsrSysTime = new HashMap<>(STARTUP_PROCESS_NUMBER);
 
         //Schedule timer to update hashmap
         new Timer().scheduleAtFixedRate(new TimerTask() {
@@ -216,7 +223,14 @@ public class SystemInfo {
             public void run() {
                 SystemInfo.updatePidUidMap();
             }
-        }, 0, HASHMAP_UPDATE_PERIOD);
+        }, 0, 2 * PowerEstimator.ITERATION_INTERVAL);
+
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                SystemInfo.updatePidUsrSysTimeMap();
+            }
+        }, 0, 1 * PowerEstimator.ITERATION_INTERVAL);
 
         readBuf = new long[1];
 
@@ -227,7 +241,7 @@ public class SystemInfo {
     }
 
     /**
-     * Update the mapPidUidMap hashmap
+     * Update the mapPidUid hashmap
      */
     public static void updatePidUidMap() {
         try {
@@ -246,7 +260,7 @@ public class SystemInfo {
             //Skip first line (header)
             String line = bufferedReader.readLine();
 
-            mapPidUidMap.clear();
+            mapPidUid.clear();
             int pid, uid;
             while ((line = bufferedReader.readLine()) != null) {
                 try {
@@ -256,7 +270,7 @@ public class SystemInfo {
                     pid = Integer.parseInt(token[0]);
                     uid = Integer.parseInt(token[1]);
 
-                    mapPidUidMap.put(pid, uid);
+                    mapPidUid.put(pid, uid);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -272,9 +286,51 @@ public class SystemInfo {
         }
     }
 
-    public void setContext(Context context) {
-        SystemInfo.context = context;
-        pixelConversionScale = context.getResources().getDisplayMetrics().density;
+    /**
+     * Update the mapPidUsrSysTime hashmap
+     */
+    public static void updatePidUsrSysTimeMap() {
+        try {
+            //Exec the command as root to see all processes
+            java.lang.Process process = Runtime.getRuntime().exec("su");
+            DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+            outputStream.writeBytes("for i in `ls /proc | /system/xbin/grep -E \"^[0-9]+\"`; do cat \"/proc/${i}/stat\" 2>/dev/null; done\n");
+            outputStream.flush();
+
+            BufferedReader bufferedReader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()), 4096);
+
+            outputStream.writeBytes("exit\n");
+            outputStream.flush();
+
+            //Skip first line (header)
+            String line;
+
+            mapPidUsrSysTime.clear();
+            int usr, sys, pid;
+            while ((line = bufferedReader.readLine()) != null) {
+                try {
+                    //line = line.trim();
+                    String[] token = line.split(" ");
+
+                    pid = Integer.parseInt(token[0]);
+                    usr = Integer.parseInt(token[13]); //utime
+                    sys = Integer.parseInt(token[14]); //stime
+
+                    mapPidUsrSysTime.put(pid, new long[]{usr, sys}); //INDEX_USER_TIME e INDEX_SYS_TIME
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+            process.waitFor();
+
+            outputStream.close();
+            bufferedReader.close();
+
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -284,12 +340,35 @@ public class SystemInfo {
      * @return uid owener of pid
      */
     public int getUidForPid(int pid) {
-
-        if (mapPidUidMap.containsKey(pid))
-            return mapPidUidMap.get(pid);
+        if (mapPidUid.containsKey(pid))
+            return mapPidUid.get(pid);
         else
             return -1;
+    }
 
+    /**
+     * Get active time for the specified PID times should contain two elements
+     *
+     * @param pid   Process id
+     * @param times times[INDEX_USER_TIME] will contains user time and times[INDEX_SYS_TIME] will
+     *              contains sys time for this pid
+     * @return true on success
+     */
+    public boolean getPidUsrSysTime(int pid, long[] times) {
+        boolean ret = true;
+
+        if (mapPidUsrSysTime.containsKey(pid))
+            times = mapPidUsrSysTime.get(pid);
+        else
+            ret = false;
+
+        return ret;
+
+    }
+
+    public void setContext(Context context) {
+        SystemInfo.context = context;
+        pixelConversionScale = context.getResources().getDisplayMetrics().density;
     }
 
     public int getUidForProcessInfo(ActivityManager.RunningAppProcessInfo app) {
@@ -372,41 +451,14 @@ public class SystemInfo {
         return lastInts;
     }
 
-    /* times should contain two elements.  times[INDEX_USER_TIME] will be filled
-     * with the user time for this pid and times[INDEX_SYS_TIME] will be filled
-     * with the sys time for this pid.  Returns true on sucess.
-     */
 
     /**
-     * times should contain two elements.  times[INDEX_USER_TIME] will be filled
-     * with the user time for this pid and times[INDEX_SYS_TIME] will be filled
-     * with the sys time for this pid.  Returns true on sucess.
-     *
-     * @param pid
-     * @param times
-     * @return
-     */
-    public boolean getPidUsrSysTime(int pid, long[] times) {
-        if (methodReadProcFile == null) return false;
-        try {
-            return (Boolean) methodReadProcFile.invoke(
-                    null, "/proc/" + pid + "/stat",
-                    PROCESS_STATS_FORMAT, null, times, null);
-        } catch (IllegalAccessException e) {
-            Log.w(TAG, "Failed to get pid cpu usage");
-        } catch (InvocationTargetException e) {
-            Log.w(TAG, "Exception thrown while getting pid cpu usage");
-        }
-        return false;
-    }
-
-    /**
-     * Times should contain seven elements.  times[INDEX_USER_TIME] will be filled
+     * Get The time spent in User mode, System mode and Idle
+     * @param times Times should contain seven elements.  times[INDEX_USER_TIME] will be filled
      * with the total user time, times[INDEX_SYS_TIME] will be filled
      * with the total sys time, and times[INDEX_TOTAL_TIME] will have the total
-     * time (including idle cycles).  Returns true on success.
-     * @param times
-     * @return
+     * time (including idle cycles).
+     * @return true on success
      */
     public boolean getUsrSysTotalTime(long[] times) {
         if (methodReadProcFile == null) return false;
@@ -689,6 +741,10 @@ public class SystemInfo {
                 icon = null;
             }
         }
+    }
+
+    public class PidTime {
+
     }
 }
 

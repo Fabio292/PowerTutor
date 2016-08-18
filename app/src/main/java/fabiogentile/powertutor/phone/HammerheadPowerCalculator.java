@@ -20,6 +20,7 @@ Please send inquiries to powertutor@umich.edu
 package fabiogentile.powertutor.phone;
 
 import android.content.Context;
+import android.util.Log;
 
 import fabiogentile.powertutor.components.Audio.AudioData;
 import fabiogentile.powertutor.components.CPU.CpuData;
@@ -87,34 +88,37 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
          */
         double ratio = powerRatios[0];
         double ret = 0;
-
-        // TODO: 13/08/16 ma le frequenze non sono sempre le stesse?? c'è bisogno di interpolare?
-//        if (powerRatios.length == 1) {
-//            ratio = powerRatios[0];
-//        } else {
-//            double sfreq = data.freq;
-//            if (sfreq < freqs[0])
-//                sfreq = freqs[0];
-//            if (sfreq > freqs[freqs.length - 1])
-//                sfreq = freqs[freqs.length - 1];
-//
-//            int ind = upperBound(freqs, sfreq);
-//            if (ind == 0) ind++;
-//            if (ind == freqs.length) ind--;
-//            ratio = powerRatios[ind - 1] + (powerRatios[ind] - powerRatios[ind - 1]) / (freqs[ind] - freqs[ind - 1]) * (sfreq - freqs[ind - 1]);
-//        }
-
+        boolean found = false;
 
         // TODO: 16/08/16 HashMap?
         for (int i = 0; i < freqs.length; i++) {
             if (freqs[i] == data.freq) {
                 ratio = powerRatios[i];
+                found = true;
                 break;
             }
         }
 
+        if (!found) {
+            Log.e(TAG, "getCpuPower: FREQUENZA NON TROVATA: " + data.freq);
+            // TODO: 13/08/16 ma le frequenze non sono sempre le stesse?? c'è bisogno di interpolare?
+            if (powerRatios.length == 1) {
+                ratio = powerRatios[0];
+            } else {
+                double sfreq = data.freq;
+                if (sfreq < freqs[0])
+                    sfreq = freqs[0];
+                if (sfreq > freqs[freqs.length - 1])
+                    sfreq = freqs[freqs.length - 1];
+
+                int ind = upperBound(freqs, sfreq);
+                if (ind == 0) ind++;
+                if (ind == freqs.length) ind--;
+                ratio = powerRatios[ind - 1] + (powerRatios[ind] - powerRatios[ind - 1]) / (freqs[ind] - freqs[ind - 1]) * (sfreq - freqs[ind - 1]);
+            }
+        }
         ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
-        //Log.i(TAG, "getCpuPower: " + ret);
+
         return ret;
     }
 

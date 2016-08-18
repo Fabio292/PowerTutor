@@ -88,6 +88,7 @@ public class CPU extends PowerComponent {
         int pidInd = 0;
         if (pids != null) {
 
+            //int err=0, ok=0;
             // Iterate through all pid
             for (int pid : pids) {
                 if (pid < 0)
@@ -123,10 +124,15 @@ public class CPU extends PowerComponent {
                     init = pidState.isInitialized();
                     pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
+                    //ok++;
                     if (!init) {
                         continue;
                     }
-                }
+                } /*else {
+                    err++;
+                    //Log.e(TAG, "calculateIteration: impossible to get time data for pid=" + pid);
+                }*/
+
 
                 // Merge different PID informations for the same UID
                 CpuStateKeeper linkState = uidLinks.get(pidState.getUid());
@@ -136,7 +142,9 @@ public class CPU extends PowerComponent {
                     linkState.absorb(pidState);
                 }
             }
+            //Log.i(TAG, "calculateIteration: OK="+ ok + " ERR=" + err);
         }
+
 
         // Remove processes that are no longer active.
         for (int i = 0; i < pidStates.size(); i++) {
@@ -150,6 +158,9 @@ public class CPU extends PowerComponent {
             int uid = uidLinks.keyAt(i);
             CpuStateKeeper linkState = uidLinks.valueAt(i);
             CpuData uidData = CpuData.obtain();
+
+            //Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.sumUsr + "(" + linkState.lastUsr
+            //    + ") stime=" + linkState.sumSys + "(" + linkState.lastSys + ")");
 
             predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
             result.addUidPowerData(uid, uidData);
@@ -353,6 +364,7 @@ public class CPU extends PowerComponent {
             return this.iteration == iteration;
         }
 
+        // TODO: 18/08/16 Capire il significato della funzione
         public boolean isStale(long iteration) {
             // if(2^DELTA_ITERATION > inactiveIteration^2)
             return 1L << (iteration - lastUpdateIteration) > inactiveIterations * inactiveIterations;

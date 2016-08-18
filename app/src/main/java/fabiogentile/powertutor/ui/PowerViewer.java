@@ -69,6 +69,7 @@ public class PowerViewer extends Activity {
     private ICounterService counterService;
     private Handler handler;
     private LinearLayout chartLayout;
+    private SystemInfo sysInfo;
 
     public void refreshView() {
         if (counterService == null) {
@@ -83,9 +84,9 @@ public class PowerViewer extends Activity {
         chartLayout.setOrientation(LinearLayout.VERTICAL);
 
         if (uid == SystemInfo.AID_ALL) {
-      /* If we are reporting global power usage then just set noUidMask to 0 so
-       * that all components get displayed.
-       */
+            /* If we are reporting global power usage then just set noUidMask to 0 so
+             * that all components get displayed.
+             */
             noUidMask = 0;
         }
         components = 0;
@@ -111,21 +112,25 @@ public class PowerViewer extends Activity {
 
             XYMultipleSeriesRenderer renderer = new XYMultipleSeriesRenderer();
             XYSeriesRenderer srenderer = new XYSeriesRenderer();
+            // TODO: 18/08/16
+//            renderer.setLabelsTextSize(sysInfo.dpToPixel(15));
+//            renderer.setAxisTitleTextSize(sysInfo.dpToPixel(15));
+//            renderer.setChartTitleTextSize(sysInfo.dpToPixel(15));
+//            renderer.setLegendTextSize(sysInfo.dpToPixel(15));
+
             renderer.setYAxisMin(0.0);
             renderer.setYAxisMax(mxPower);
             renderer.setYTitle(name + "(mW)");
 
-            int clr = PowerPie.COLORS[(PowerPie.COLORS.length + i) %
-                    PowerPie.COLORS.length];
+            int clr = PowerPie.COLORS[(PowerPie.COLORS.length + i) % PowerPie.COLORS.length];
             srenderer.setColor(clr);
             srenderer.setFillBelowLine(true);
-            srenderer.setFillBelowLineColor(((clr >> 1) & 0x7F7F7F) |
-                    (clr & 0xFF000000));
+            srenderer.setFillBelowLineColor(((clr >> 1) & 0x7F7F7F) | (clr & 0xFF000000));
             renderer.addSeriesRenderer(srenderer);
 
-            View chartView = new GraphicalView(this,
-                    new CubicLineChart(mseries, renderer, 0.5f));
-            chartView.setMinimumHeight(100);
+
+            View chartView = new GraphicalView(this, new CubicLineChart(mseries, renderer, 0.5f));
+            chartView.setMinimumHeight(sysInfo.dpToPixel(120));
             chartLayout.addView(chartView);
 
             collectors[pos] = new ValueCollector(series, renderer, chartView, i);
@@ -135,10 +140,10 @@ public class PowerViewer extends Activity {
             pos++;
         }
 
-    /* We're giving 100 pixels per graph of vertical space for the chart view.
-       If we don't specify a minimum height the chart view ends up having a
-       height of 0 so this is important. */
-        chartLayout.setMinimumHeight(100 * components);
+        /* We're giving 100 pixels per graph of vertical space for the chart view.
+           If we don't specify a minimum height the chart view ends up having a
+           height of 0 so this is important. */
+        chartLayout.setMinimumHeight(sysInfo.dpToPixel(120) * components);
 
         ScrollView scrollView = new ScrollView(this) {
             public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
@@ -158,6 +163,9 @@ public class PowerViewer extends Activity {
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         uid = getIntent().getIntExtra("uid", SystemInfo.AID_ALL);
 
+        sysInfo = SystemInfo.getInstance();
+        sysInfo.setContext(getApplicationContext());
+
         collecting = true;
         if (savedInstanceState != null) {
             collecting = savedInstanceState.getBoolean("collecting", true);
@@ -172,6 +180,7 @@ public class PowerViewer extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume: ");
         handler = new Handler();
         getApplicationContext().bindService(serviceIntent, conn, 0);
 
@@ -181,6 +190,7 @@ public class PowerViewer extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(TAG, "onPause: ");
         getApplicationContext().unbindService(conn);
         if (collectors != null) for (int i = 0; i < components; i++) {
             handler.removeCallbacks(collectors[i]);
