@@ -25,21 +25,25 @@ import android.hardware.SensorManager;
 
 import fabiogentile.powertutor.components.Sensors;
 
-//Values in mAh (?)
+/*
+ * Values must be in mW
+ * If we want to use the values from power_profile.xml (that are expressed in mA)
+ * it's necessary to multiply the value by the nominal tension (3.7V ?)
+ */
 public class HammerheadConstants implements PhoneConstants {
     protected static final String OPER_TMOBILE = "T - Mobile";
     protected static final String OPER_ATT = "AT&T";
 
 
-    private static final double[] arrayCpuPowerRatios = {57.9, 88.2,
-            99.6, 138.8, 149.6, 170.2,
-            178.3, 189.1, 232.1, 256.5,
-            266.4, 287.7, 325.7, 386.2};
+    private static final double[] arrayCpuPowerRatios = {214.23, 326.34,
+            368.52, 513.56, 553.52, 629.74,
+            659.71, 699.67, 858.77, 949.05,
+            985.68, 1064.49, 1205.09, 1428.94};
     //Freqs in MHz
     private static final double[] arrayCpuFreqs = {300.0, 422.4,
             652.8, 729.6, 883.2, 960.0,
             1036.8, 1190.4, 1267.2, 1497.6,
-            1574.0, 1728.0, 1958.4, 2265.6};
+            1574.4, 1728.0, 1958.4, 2265.6};
 
     private static final double[] arrayGpsStatePower = {0.0, 173.55, 429.55};
 
@@ -89,13 +93,13 @@ public class HammerheadConstants implements PhoneConstants {
     //<editor-fold desc="LCD">
     public double lcdBrightness() {
         //screen.full / 255
-        return 0.788862;
+        return 2.918792157;
     }
 
     public double lcdBacklight() {
         //screen.on
         // TODO: 11/08/16 add cpu_base?
-        return 82.75;
+        return 306.175;
     }
     //</editor-fold>
 

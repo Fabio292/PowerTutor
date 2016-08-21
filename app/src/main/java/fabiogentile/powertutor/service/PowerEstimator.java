@@ -204,7 +204,8 @@ public class PowerEstimator implements Runnable {
                     int uid = uidPower.keyAt(j);
                     PowerData powerData = uidPower.valueAt(j);
                     int power = (int) powerFunctions.get(i).calculate(powerData);
-                    compPower += power;
+
+                    //Log.i(TAG, "run: uid=" + uid + " power=" + power);
 
 //                    if(uid >= SystemInfo.AID_APP)
 //                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + sysInfo.getAppId(uid, pm) + " -> " + power);
@@ -216,6 +217,7 @@ public class PowerEstimator implements Runnable {
                     histories.get(i).add(uid, iter, power);
                     if (uid == SystemInfo.AID_ALL) {
                         totalPower += power;
+                        compPower += power;
                     }
                     if (i == oledId) {
                         OLED.OledData oledData = (OLED.OledData) powerData;
@@ -225,7 +227,7 @@ public class PowerEstimator implements Runnable {
                     }
                 }
 
-                Log.i(TAG, "run: [" + comp.getComponentName() + "] " + compPower);
+                Log.i(TAG, "run: [" + comp.getComponentName() + "] " + compPower + " mW");
             }
             //</editor-fold>
 
@@ -309,13 +311,13 @@ public class PowerEstimator implements Runnable {
                     lastCurrent = current;
                 }
             }
-            if (iter % (5 * 60) == 0) { // Every 300 iterations
+            if (iter % (5 * 60) == 0) { // Every 300 iterations (5 minutes)
                 if (bst.hasTemp())
                     writeToLog("batt_temp " + bst.getTemp() + "\n");
                 if (bst.hasCharge())
                     writeToLog("batt_charge " + bst.getCharge() + "\n");
             }
-            if (iter % (30 * 60) == 0) { // Every 1800 iterations
+            if (iter % (30 * 60) == 0) { // Every 1800 iterations (30 minutes)
                 if (Settings.System.getInt(context.getContentResolver(),
                         "screen_brightness_mode", 0) != 0) {
                     writeToLog("setting_brightness automatic\n");

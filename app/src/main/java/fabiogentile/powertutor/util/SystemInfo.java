@@ -38,9 +38,9 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
 
 import fabiogentile.powertutor.service.PowerEstimator;
 
@@ -97,6 +97,7 @@ public class SystemInfo {
     private static final int[] READ_LONG_FORMAT = new int[]{
             PROC_SPACE_TERM | PROC_OUT_LONG
     };
+    //<editor-fold desc="PROCESS FORMAT">
     private static final int[] PROCESS_STATS_FORMAT = new int[]{
             PROC_SPACE_TERM | PROC_OUT_STRING,
             PROC_SPACE_TERM | PROC_OUT_STRING,
@@ -114,23 +115,25 @@ public class SystemInfo {
             PROC_SPACE_TERM | PROC_OUT_LONG,                  // 13: utime
             PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
     };
-    /*    private static final int[] PROCESS_STATS_FORMAT = new int[]{
-                PROC_SPACE_TERM | PROC_OUT_STRING,
-                PROC_SPACE_TERM | PROC_OUT_STRING,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,
-                PROC_SPACE_TERM | PROC_OUT_LONG,                  // 13: utime
-                PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
-        };*/
+
+//    private static final int[] PROCESS_STATS_FORMAT = new int[]{
+//            PROC_SPACE_TERM | PROC_OUT_STRING,
+//            PROC_SPACE_TERM | PROC_OUT_STRING,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,
+//            PROC_SPACE_TERM | PROC_OUT_LONG,                  // 13: utime
+//            PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
+//    };
+
     private static final int[] PROCESS_TOTAL_STATS_FORMAT = new int[]{
             PROC_SPACE_TERM,
             PROC_SPACE_TERM | PROC_OUT_LONG,
@@ -147,16 +150,20 @@ public class SystemInfo {
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
     };
+    //</editor-fold>
 
-    private static final int STARTUP_PROCESS_NUMBER = 190;  //Estimated process number at startup
+    private static final int STARTUP_PROCESS_NUMBER = 240;  //Estimated process number at startup
+    private static final String COMMAND_TERMINATOR = "--TERM--";
+    private static final Object suProcessSynch = new Object();
     private static SystemInfo instance = new SystemInfo();
-
-    private static HashMap<Integer, Integer> mapPidUid;
-    private static HashMap<Integer, long[]> mapPidUsrSysTime;
+    private static ConcurrentHashMap<Integer, Integer> mapPidUid;
+    private static ConcurrentHashMap<Integer, long[]> mapPidUsrSysTime;
     private static Context context;
     private static float pixelConversionScale = 1.0F;
+    private static java.lang.Process suProcess;
+    private static DataOutputStream suProcessInput;
+    private static BufferedReader suProcessOutput;
     SparseArray<UidCacheEntry> uidCache = new SparseArray<UidCacheEntry>();
-
     // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE?
     /* We are going to take advantage of the hidden API within Process.java that
      * makes use of JNI so that we can perform the top task efficiently.
@@ -175,6 +182,12 @@ public class SystemInfo {
      */
     private SystemInfo() {
         Log.i(TAG, "SystemInfo: CREATO");
+
+        suProcess = null;
+        suProcessInput = null;
+        suProcessOutput = null;
+
+        startSuProcess();
 
         //<editor-fold desc="REFLECTION">
         try {
@@ -213,10 +226,11 @@ public class SystemInfo {
         }
         //</editor-fold>
 
-        //Instantiate the hashmaps with a hypotetical number of process
-        mapPidUid = new HashMap<>(STARTUP_PROCESS_NUMBER);
-        mapPidUsrSysTime = new HashMap<>(STARTUP_PROCESS_NUMBER);
+        //Instantiate the hashmaps with a hypothetical number of process
+        mapPidUid = new ConcurrentHashMap<>(STARTUP_PROCESS_NUMBER);
+        mapPidUsrSysTime = new ConcurrentHashMap<>(STARTUP_PROCESS_NUMBER);
 
+        //<editor-fold desc="TIMER">
         //Schedule timer to update hashmap
         new Timer().scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -230,7 +244,10 @@ public class SystemInfo {
             public void run() {
                 SystemInfo.updatePidUsrSysTimeMap();
             }
-        }, 0, 1 * PowerEstimator.ITERATION_INTERVAL);
+        }, 0, PowerEstimator.ITERATION_INTERVAL);
+        //</editor-fold>
+
+        Log.i(TAG, "SystemInfo: Timer created");
 
         readBuf = new long[1];
 
@@ -241,47 +258,121 @@ public class SystemInfo {
     }
 
     /**
+     * Start SU process
+     */
+    public static void startSuProcess() {
+        try {
+            if (isSuProcessAlive())
+                return;
+            suProcess = Runtime.getRuntime().exec("su");
+            //suProcess.waitFor();
+            suProcessInput = new DataOutputStream(suProcess.getOutputStream());
+            suProcessOutput = new BufferedReader(new InputStreamReader(suProcess.getInputStream()));
+            Log.i(TAG, "startSuProcess: SU started");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Stop SU process
+     */
+    public static void stopSuProcess() {
+        try {
+            if (!isSuProcessAlive())
+                return;
+            synchronized (suProcessSynch) {
+                suProcess.waitFor();
+                suProcessInput.close();
+                suProcessOutput.close();
+
+                suProcess = null;
+                suProcessInput = null;
+                suProcessOutput = null;
+                Log.i(TAG, "stopSuProcess: SU stopped");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Check if SU process is alive
+     *
+     * @return true if is alive
+     */
+    private static boolean isSuProcessAlive() {
+        return (suProcess != null) && (suProcessInput != null) && (suProcessOutput != null);
+    }
+
+    /**
      * Update the mapPidUid hashmap
      */
     public static void updatePidUidMap() {
+        //Log.d(TAG, "updatePidUidMap: ");
         try {
-            //Exec the command as root to see all processes
-            java.lang.Process process = Runtime.getRuntime().exec("su");
-            DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
-            outputStream.writeBytes("/system/xbin/ps -o pid,user\n");
-            outputStream.flush();
+            synchronized (suProcessSynch) {
+                mapPidUid.clear();
 
-            BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()), 4096);
+                if (!SystemInfo.isSuProcessAlive())
+                    return;
 
-            outputStream.writeBytes("exit\n");
-            outputStream.flush();
+//                suProcessInput.writeBytes("echo $USER > /sdcard/BENCHMARK/test.abc\n");
+//                suProcessInput.flush();
 
-            //Skip first line (header)
-            String line = bufferedReader.readLine();
+                //Exec the command as root to see all processes
+                //java.lang.Process process = Runtime.getRuntime().exec("su");
+                //DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+                suProcessInput.writeBytes("/system/xbin/ps -o pid,user; echo " + COMMAND_TERMINATOR + "\n");
+                suProcessInput.flush();
 
-            mapPidUid.clear();
-            int pid, uid;
-            while ((line = bufferedReader.readLine()) != null) {
-                try {
-                    line = line.trim();
-                    String[] token = line.split(" ");
+                //BufferedReader bufferedReader = new BufferedReader(
+                //        new InputStreamReader(process.getInputStream()), 4096);
 
-                    pid = Integer.parseInt(token[0]);
-                    uid = Integer.parseInt(token[1]);
+                //outputStream.writeBytes("exit\n");
+                //outputStream.flush();
 
-                    mapPidUid.put(pid, uid);
-                } catch (Exception e) {
-                    e.printStackTrace();
+                //Skip first line (header)
+                //String line = bufferedReader.readLine();
+
+                String line = suProcessOutput.readLine();
+
+                int pid, uid, i = 0;
+
+                while (true) {
+                    try {
+                        line = suProcessOutput.readLine();
+                        if (line == null || line.compareTo(COMMAND_TERMINATOR) == 0)
+                            break;
+
+                        line = line.trim();
+                        String[] token = line.split(" ");
+
+                        if (token.length != 2) {
+                            Log.e(TAG, "updatePidUidMap: ->" + line);
+                        }
+
+                        pid = Integer.parseInt(token[0]);
+                        uid = Integer.parseInt(token[1]);
+
+//                        if(i>210)
+//                            Log.i(TAG, "updatePidUidMap: " + pid + " - " + uid + " - " + i);
+
+                        i++;
+
+                        mapPidUid.put(pid, uid);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
+                //suProcess.waitFor();
+                //outputStream.close();
+                //bufferedReader.close();
 
+                //Log.i(TAG, "updatePidUidMap: updated[" + i + "]");
             }
-            process.waitFor();
 
-            outputStream.close();
-            bufferedReader.close();
-
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -290,45 +381,63 @@ public class SystemInfo {
      * Update the mapPidUsrSysTime hashmap
      */
     public static void updatePidUsrSysTimeMap() {
+        //Log.d(TAG, "updatePidUsrSysTimeMap: ");
         try {
-            //Exec the command as root to see all processes
-            java.lang.Process process = Runtime.getRuntime().exec("su");
-            DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
-            outputStream.writeBytes("for i in `ls /proc | /system/xbin/grep -E \"^[0-9]+\"`; do cat \"/proc/${i}/stat\" 2>/dev/null; done\n");
-            outputStream.flush();
 
-            BufferedReader bufferedReader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()), 4096);
+            synchronized (suProcessSynch) {
+                mapPidUsrSysTime.clear();
 
-            outputStream.writeBytes("exit\n");
-            outputStream.flush();
+                if (!SystemInfo.isSuProcessAlive())
+                    return;
 
-            //Skip first line (header)
-            String line;
+                //Exec the command as root to see all processes
+//                java.lang.Process process = Runtime.getRuntime().exec("su");
+//                DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+                suProcessInput.writeBytes("for i in `ls /proc | /system/xbin/grep -E \"^[0-9]+\"`; " +
+                        "do cat \"/proc/${i}/stat\" 2>/dev/null; " +
+                        "done; echo " + COMMAND_TERMINATOR + "\n");
+                suProcessInput.flush();
 
-            mapPidUsrSysTime.clear();
-            int usr, sys, pid;
-            while ((line = bufferedReader.readLine()) != null) {
-                try {
-                    //line = line.trim();
-                    String[] token = line.split(" ");
+                String line;
 
-                    pid = Integer.parseInt(token[0]);
-                    usr = Integer.parseInt(token[13]); //utime
-                    sys = Integer.parseInt(token[14]); //stime
+                int usr, sys, pid, i = 0;
+                //String tmp = "";
+                while (true) {
+                    try {
+                        line = suProcessOutput.readLine();
+                        if (line == null || line.compareTo(COMMAND_TERMINATOR) == 0)
+                            break;
 
-                    mapPidUsrSysTime.put(pid, new long[]{usr, sys}); //INDEX_USER_TIME e INDEX_SYS_TIME
-                } catch (Exception e) {
-                    e.printStackTrace();
+                        i++;
+                        String[] token = line.split(" ");
+
+                        pid = Integer.parseInt(token[0]);
+                        usr = Integer.parseInt(token[13]); //utime
+                        sys = Integer.parseInt(token[14]); //stime
+
+                        //tmp += " " + pid;
+                        long[] val = new long[2]; //I assume that max(INDEX_USER_TIME, INDEX_SYS_TIME) = 1
+                        val[INDEX_USER_TIME] = usr;
+                        val[INDEX_SYS_TIME] = sys;
+
+                        //Log.i(TAG, "updatePidUsrSysTimeMap: " + pid + " - " + usr + " - " + sys);
+
+                        mapPidUsrSysTime.put(pid, val); //INDEX_USER_TIME e INDEX_SYS_TIME
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
                 }
+                //Log.i(TAG, "updatePidUsrSysTimeMap: " + tmp);
+//                process.waitFor();
+//
+//                outputStream.close();
+//                bufferedReader.close();
 
+                //Log.i(TAG, "updatePidUsrSysTimeMap: updated[" + i + "]");
             }
-            process.waitFor();
 
-            outputStream.close();
-            bufferedReader.close();
-
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -340,10 +449,13 @@ public class SystemInfo {
      * @return uid owener of pid
      */
     public int getUidForPid(int pid) {
-        if (mapPidUid.containsKey(pid))
-            return mapPidUid.get(pid);
-        else
-            return -1;
+        try {
+            if (mapPidUid.containsKey(pid))
+                return mapPidUid.get(pid);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        return -1;
     }
 
     /**
@@ -355,15 +467,18 @@ public class SystemInfo {
      * @return true on success
      */
     public boolean getPidUsrSysTime(int pid, long[] times) {
-        boolean ret = true;
+        try {
+            if (mapPidUsrSysTime.containsKey(pid)) {
+                long[] val = mapPidUsrSysTime.get(pid);
+                times[INDEX_USER_TIME] = val[INDEX_USER_TIME];
+                times[INDEX_SYS_TIME] = val[INDEX_SYS_TIME];
+                return true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-        if (mapPidUsrSysTime.containsKey(pid))
-            times = mapPidUsrSysTime.get(pid);
-        else
-            ret = false;
-
-        return ret;
-
+        return false;
     }
 
     public void setContext(Context context) {
@@ -402,7 +517,12 @@ public class SystemInfo {
         return null;
     }
 
-    /* Gets a property on Android accessible through getprop. */
+
+    /**
+     * Gets a property on Android accessible through getprop
+     * @param property Property requested
+     * @return Property values
+     */
     public String getProperty(String property) {
         if (methodGetProperty == null) return null;
         try {
@@ -415,9 +535,12 @@ public class SystemInfo {
         return null;
     }
 
-    /* lastUids can be null.  It is just used to avoid memory reallocation if
+    /**
+     * lastUids can be null.  It is just used to avoid memory reallocation if
      * at all possible. Returns null on failure. If lastUids can hold the new
      * uid list the extra entries will be filled with -1 at the end.
+     * @param lastUids
+     * @return
      */
     public int[] getUids(int[] lastUids) {
         if (methodGetPids == null) return manualGetInts("/proc/uid_stat", lastUids);

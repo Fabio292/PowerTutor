@@ -116,6 +116,7 @@ public class CPU extends PowerComponent {
                     /* Nothing much is going on with this pid recently.  We'll just
                      * assume that it's not using any of the cpu for this iteration.
                      */
+                    //Log.i(TAG, "calculateIteration: Pid " + pid + " is stale (?)");
                     pidState.updateIteration(iteration, totalTime);
                 } else if (sysInfo.getPidUsrSysTime(pid, statsBuf)) {
                     usrTime = statsBuf[SystemInfo.INDEX_USER_TIME];
@@ -124,13 +125,15 @@ public class CPU extends PowerComponent {
                     init = pidState.isInitialized();
                     pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
+                    if ((pidState.sumUsr + pidState.sumSys) > 50)
+                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.sumUsr + " S=" + pidState.sumSys);
                     //ok++;
                     if (!init) {
                         continue;
                     }
                 } /*else {
-                    err++;
-                    //Log.e(TAG, "calculateIteration: impossible to get time data for pid=" + pid);
+                    //err++;
+                    Log.e(TAG, "calculateIteration: impossible to get time data for pid " + pid);
                 }*/
 
 
@@ -153,18 +156,24 @@ public class CPU extends PowerComponent {
             }
         }
 
+        int compTime = 0;
         // Collect the summed uid information.
         for (int i = 0; i < uidLinks.size(); i++) {
             int uid = uidLinks.keyAt(i);
             CpuStateKeeper linkState = uidLinks.valueAt(i);
             CpuData uidData = CpuData.obtain();
 
-            //Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.sumUsr + "(" + linkState.lastUsr
-            //    + ") stime=" + linkState.sumSys + "(" + linkState.lastSys + ")");
+            compTime += linkState.sumUsr + linkState.sumSys;
+
+//            Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.sumUsr + "(" + linkState.lastUsr
+//                + ") stime=" + linkState.sumSys + "(" + linkState.lastSys + ")");
 
             predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
             result.addUidPowerData(uid, uidData);
         }
+
+        Log.i(TAG, "calculateIteration: computation time for this iteration: " + (float) (compTime / 100.0));
+
 
         return result;
     }
@@ -298,8 +307,8 @@ public class CPU extends PowerComponent {
         private long lastSys;
         private long lastTotal;
 
-        private long sumUsr;
-        private long sumSys;
+        private long sumUsr;    //Delta value
+        private long sumSys;    //Delta value
         private long deltaTotal;
 
         private CpuStateKeeper(int uid) {

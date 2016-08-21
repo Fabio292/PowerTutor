@@ -109,12 +109,14 @@ public class UMLogger extends Activity {
                     serviceStartButton.setEnabled(false);
                     if (counterService != null) {
                         stopService(serviceIntent);
+                        SystemInfo.stopSuProcess();
                     } else {
                         if (conn == null) {
                             Toast.makeText(UMLogger.this, "Profiler failed to start",
                                     Toast.LENGTH_SHORT).show();
                         } else {
                             startService(serviceIntent);
+                            SystemInfo.startSuProcess();
                         }
                     }
                 }
