@@ -28,6 +28,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
+import fabiogentile.powertutor.phone.HammerheadPowerCalculator;
 import fabiogentile.powertutor.phone.PhoneConstants;
 import fabiogentile.powertutor.service.IterationData;
 import fabiogentile.powertutor.service.PowerData;
@@ -86,6 +87,7 @@ public class CPU extends PowerComponent {
         uidLinks.clear();
         pids = sysInfo.getPids(pids);
         int pidInd = 0;
+        double powerPid = 0.0, powerUid = 0.0;
         if (pids != null) {
 
             //int err=0, ok=0;
@@ -131,6 +133,16 @@ public class CPU extends PowerComponent {
                     if (!init) {
                         continue;
                     }
+
+                    CpuData tmp = new CpuData();
+
+                    // Value are in SYS_TICK
+                    tmp.init(pidState.sumSys / 100.0, pidState.sumUsr / 100.0, freq);
+                    double power = HammerheadPowerCalculator.getTESTPower(tmp);
+                    powerPid += power;
+                    if (power > 0.0)
+                        Log.i(TAG, "calculateIteration: uid=" + pid + " -> " + power + " mW");
+
                 } /*else {
                     //err++;
                     Log.e(TAG, "calculateIteration: impossible to get time data for pid " + pid);
@@ -150,11 +162,15 @@ public class CPU extends PowerComponent {
 
 
         // Remove processes that are no longer active.
+        int deleted = 0;
         for (int i = 0; i < pidStates.size(); i++) {
             if (!pidStates.valueAt(i).isAlive(iteration)) {
                 pidStates.remove(pidStates.keyAt(i--));
+                deleted++;
             }
         }
+        if (deleted > 0)
+            Log.i(TAG, "calculateIteration: deleted=" + deleted);
 
         int compTime = 0;
         // Collect the summed uid information.
@@ -168,11 +184,17 @@ public class CPU extends PowerComponent {
 //            Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.sumUsr + "(" + linkState.lastUsr
 //                + ") stime=" + linkState.sumSys + "(" + linkState.lastSys + ")");
 
+            CpuData tmp = new CpuData();
+            tmp.init(linkState.sumSys / 100.0, linkState.sumUsr / 100.0, freq);
+            double power = HammerheadPowerCalculator.getTESTPower(tmp);
+            powerUid += power;
+
             predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
             result.addUidPowerData(uid, uidData);
         }
 
         Log.i(TAG, "calculateIteration: computation time for this iteration: " + (float) (compTime / 100.0));
+        Log.i(TAG, "calculateIteration: PID=" + powerPid + " UID=" + powerUid);
 
 
         return result;
@@ -307,8 +329,17 @@ public class CPU extends PowerComponent {
         private long lastSys;
         private long lastTotal;
 
+        /**
+         * Delta value in SYS_TICK (usually 100Hz) from last iteration
+         */
         private long sumUsr;    //Delta value
+        /**
+         * Delta value in SYS_TICK (usually 100Hz) from last iteration
+         */
         private long sumSys;    //Delta value
+        /**
+         * Delta value in SYS_TICK (usually 100Hz) from last iteration
+         */
         private long deltaTotal;
 
         private CpuStateKeeper(int uid) {

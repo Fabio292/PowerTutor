@@ -279,9 +279,13 @@ public class SystemInfo {
      */
     public static void stopSuProcess() {
         try {
-            if (!isSuProcessAlive())
-                return;
             synchronized (suProcessSynch) {
+                if (!isSuProcessAlive())
+                    return;
+
+                suProcessInput.writeBytes("exit\n");
+                suProcessInput.flush();
+
                 suProcess.waitFor();
                 suProcessInput.close();
                 suProcessOutput.close();

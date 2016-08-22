@@ -69,6 +69,31 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         return lo;
     }
 
+    public static double getTESTPower(CpuData data) {
+        final double[] arrayCpuPowerRatios = {214.23, 326.34,
+                368.52, 513.56, 553.52, 629.74,
+                659.71, 699.67, 858.77, 949.05,
+                985.68, 1064.49, 1205.09, 1428.94};
+        //Freqs in MHz
+        final double[] arrayCpuFreqs = {300.0, 422.4,
+                652.8, 729.6, 883.2, 960.0,
+                1036.8, 1190.4, 1267.2, 1497.6,
+                1574.4, 1728.0, 1958.4, 2265.6};
+        double ratio = arrayCpuPowerRatios[0];
+        double ret = 0;
+
+        for (int i = 0; i < arrayCpuFreqs.length; i++) {
+            if (arrayCpuFreqs[i] == data.freq) {
+                ratio = arrayCpuPowerRatios[i];
+                break;
+            }
+        }
+
+        ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
+
+        return ret;
+    }
+
     public double getLcdPower(LcdData data) {
         double ret = data.screenOn ?
                 coeffs.lcdBrightness() * data.brightness + coeffs.lcdBacklight() : 0;
