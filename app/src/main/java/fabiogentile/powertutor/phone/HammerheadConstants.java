@@ -38,6 +38,7 @@ public class HammerheadConstants implements PhoneConstants {
     /**
      * Values expressed for 100% cpu load?
      */
+    // TODO: 23/08/16 add base power? 
     private static final double[] arrayCpuPowerRatios = {214.23, 326.34,
             368.52, 513.56, 553.52, 629.74,
             659.71, 699.67, 858.77, 949.05,

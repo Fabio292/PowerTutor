@@ -126,8 +126,8 @@ public class CPU extends PowerComponent {
                     init = pidState.isInitialized();
                     pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
-                    if ((pidState.deltaUsr + pidState.deltaSys) > 50)
-                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.deltaUsr + " S=" + pidState.deltaSys);
+//                    if ((pidState.deltaUsr + pidState.deltaSys) > 50)
+//                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.deltaUsr + " S=" + pidState.deltaSys);
                     //ok++;
                     if (!init) {
                         continue;
@@ -196,11 +196,15 @@ public class CPU extends PowerComponent {
              * TODO serve davvero convertire da jiffies a ms? se tutti i valori di timing sono in
              * jffies credo di no
              */
-//            double userPerc = linkState.getUsrPerc();
-//            double sysPerc = linkState.getSysPerc();
+            double userPerc = linkState.getUsrPerc();
+            double sysPerc = linkState.getSysPerc();
+            double sum = userPerc + sysPerc;
+
+//            if(sum > 0.0)
+//                Log.i(TAG, "calculateIteration: uid=" + uid + " " + sum + "%");
 //            uidData.init(sysPerc, userPerc, freq);
 
-            uidData.init(linkState.getSysPerc(), linkState.getUsrPerc(), freq);
+            uidData.init(sysPerc / 100.0, userPerc / 100.0, freq);
 
 //            double sum = userPerc+sysPerc;
 //            if(sum > 0.0)
