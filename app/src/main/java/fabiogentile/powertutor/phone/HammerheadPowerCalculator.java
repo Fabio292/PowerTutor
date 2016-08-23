@@ -125,25 +125,11 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         }
 
         if (!found) {
-            Log.e(TAG, "getCpuPower: FREQUENZA NON TROVATA: " + data.freq);
-            // TODO: 13/08/16 ma le frequenze non sono sempre le stesse?? c'è bisogno di interpolare?
-            if (powerRatios.length == 1) {
-                ratio = powerRatios[0];
-            } else {
-                double sfreq = data.freq;
-                if (sfreq < freqs[0])
-                    sfreq = freqs[0];
-                if (sfreq > freqs[freqs.length - 1])
-                    sfreq = freqs[freqs.length - 1];
-
-                int ind = upperBound(freqs, sfreq);
-                if (ind == 0) ind++;
-                if (ind == freqs.length) ind--;
-                ratio = powerRatios[ind - 1] + (powerRatios[ind] - powerRatios[ind - 1]) / (freqs[ind] - freqs[ind - 1]) * (sfreq - freqs[ind - 1]);
-            }
+            Log.e(TAG, "getCpuPower: FREQ not found: " + data.freq);
+            ratio = powerRatios[0];
         }
-        ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
 
+        ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
         return ret;
     }
 

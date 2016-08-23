@@ -35,6 +35,9 @@ public class HammerheadConstants implements PhoneConstants {
     protected static final String OPER_ATT = "AT&T";
 
 
+    /**
+     * Values expressed for 100% cpu load?
+     */
     private static final double[] arrayCpuPowerRatios = {214.23, 326.34,
             368.52, 513.56, 553.52, 629.74,
             659.71, 699.67, 858.77, 949.05,

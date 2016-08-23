@@ -134,15 +134,19 @@ public class SystemInfo {
 //            PROC_SPACE_TERM | PROC_OUT_LONG                   // 14: stime
 //    };
 
+    /**
+     * Used to get total time from /proc/stat
+     */
     private static final int[] PROCESS_TOTAL_STATS_FORMAT = new int[]{
             PROC_SPACE_TERM,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
-            PROC_SPACE_TERM | PROC_OUT_LONG,
+            PROC_SPACE_TERM | PROC_OUT_LONG, // ?? discarded
+            PROC_SPACE_TERM | PROC_OUT_LONG, // user
+            PROC_SPACE_TERM | PROC_OUT_LONG, // nice
+            PROC_SPACE_TERM | PROC_OUT_LONG, // system
+            PROC_SPACE_TERM | PROC_OUT_LONG, // idle
+            PROC_SPACE_TERM | PROC_OUT_LONG, // iowait
+            PROC_SPACE_TERM | PROC_OUT_LONG, // irq
+            PROC_SPACE_TERM | PROC_OUT_LONG, // softirq
     };
     private static final int[] PROC_MEMINFO_FORMAT = new int[]{
             PROC_SPACE_TERM | PROC_COMBINE, PROC_SPACE_TERM | PROC_OUT_LONG, PROC_LINE_TERM,
@@ -581,21 +585,25 @@ public class SystemInfo {
 
     /**
      * Get The time spent in User mode, System mode and Idle
-     * @param times Times should contain seven elements.  times[INDEX_USER_TIME] will be filled
+     * @param times Times should contain 8 elements.  times[INDEX_USER_TIME] will be filled
      * with the total user time, times[INDEX_SYS_TIME] will be filled
      * with the total sys time, and times[INDEX_TOTAL_TIME] will have the total
      * time (including idle cycles).
      * @return true on success
      */
     public boolean getUsrSysTotalTime(long[] times) {
+        // TODO: 23/08/16 leggere i valori per singola CPU o la somma?
+        /* Secondo me è meglio la somma, altrimenti per ogni processo sarebbe necesario
+         * Vedere su quale CPU è stato eseguito nel corso dell'iterazione
+         */
         if (methodReadProcFile == null) return false;
         try {
             if ((Boolean) methodReadProcFile.invoke(
                     null, "/proc/stat",
                     PROCESS_TOTAL_STATS_FORMAT, null, times, null)) {
-                long usr = times[0] + times[1];
-                long sys = times[2] + times[5] + times[6];
-                long total = usr + sys + times[3] + times[4];
+                long usr = times[1] + times[2];                 // user + nice
+                long sys = times[3] + times[6] + times[7];      // system + irq + softirq
+                long total = usr + sys + times[4] + times[5];   // (1) + (2) + idle + iowait
                 times[INDEX_USER_TIME] = usr;
                 times[INDEX_SYS_TIME] = sys;
                 times[INDEX_TOTAL_TIME] = total;

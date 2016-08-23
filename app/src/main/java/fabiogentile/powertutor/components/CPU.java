@@ -28,7 +28,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 
-import fabiogentile.powertutor.phone.HammerheadPowerCalculator;
 import fabiogentile.powertutor.phone.PhoneConstants;
 import fabiogentile.powertutor.service.IterationData;
 import fabiogentile.powertutor.service.PowerData;
@@ -51,7 +50,7 @@ public class CPU extends PowerComponent {
         cpuState = new CpuStateKeeper(SystemInfo.AID_ALL);
         pidStates = new SparseArray<CpuStateKeeper>();
         uidLinks = new SparseArray<CpuStateKeeper>();
-        statsBuf = new long[7];
+        statsBuf = new long[8];
     }
 
     @Override
@@ -87,7 +86,7 @@ public class CPU extends PowerComponent {
         uidLinks.clear();
         pids = sysInfo.getPids(pids);
         int pidInd = 0;
-        double powerPid = 0.0, powerUid = 0.0;
+        //double powerPid = 0.0, powerUid = 0.0;
         if (pids != null) {
 
             //int err=0, ok=0;
@@ -127,21 +126,22 @@ public class CPU extends PowerComponent {
                     init = pidState.isInitialized();
                     pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
-                    if ((pidState.sumUsr + pidState.sumSys) > 50)
-                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.sumUsr + " S=" + pidState.sumSys);
+                    if ((pidState.deltaUsr + pidState.deltaSys) > 50)
+                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.deltaUsr + " S=" + pidState.deltaSys);
                     //ok++;
                     if (!init) {
                         continue;
                     }
-
-                    CpuData tmp = new CpuData();
-
-                    // Value are in SYS_TICK
-                    tmp.init(pidState.sumSys / 100.0, pidState.sumUsr / 100.0, freq);
-                    double power = HammerheadPowerCalculator.getTESTPower(tmp);
-                    powerPid += power;
-                    if (power > 0.0)
-                        Log.i(TAG, "calculateIteration: uid=" + pid + " -> " + power + " mW");
+//
+//                    CpuData tmp = new CpuData();
+//
+//                    // Value are in SYS_TICK
+//                    tmp.init(pidState.deltaSys / 100.0, pidState.deltaUsr / 100.0, freq);
+//                    double power = HammerheadPowerCalculator.getTESTPower(tmp);
+//                    powerPid += power;
+//                    if (power > 0.0)
+//                        Log.i(TAG, "calculateIteration: pid=" + pid + " -> " +
+//                                String.format(Locale.getDefault(), "%1$.2f mW", power));
 
                 } /*else {
                     //err++;
@@ -179,22 +179,45 @@ public class CPU extends PowerComponent {
             CpuStateKeeper linkState = uidLinks.valueAt(i);
             CpuData uidData = CpuData.obtain();
 
-            compTime += linkState.sumUsr + linkState.sumSys;
+            compTime += linkState.deltaUsr + linkState.deltaSys;
 
-//            Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.sumUsr + "(" + linkState.lastUsr
-//                + ") stime=" + linkState.sumSys + "(" + linkState.lastSys + ")");
+//            Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.deltaUsr + "(" + linkState.lastUsr
+//                + ") stime=" + linkState.deltaSys + "(" + linkState.lastSys + ")");
 
-            CpuData tmp = new CpuData();
-            tmp.init(linkState.sumSys / 100.0, linkState.sumUsr / 100.0, freq);
-            double power = HammerheadPowerCalculator.getTESTPower(tmp);
-            powerUid += power;
 
-            predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
+            /* Il valore che ricavo dal file /proc/[pid]/stat(14,15) è espresso in JIFFIES
+             * Per ottenere un valore in secondi bisogna dividere la somma dei due valori per la costante
+             * USER_HZ (oppure HZ oppure CLOCK_PER_SEC) che corrisponde alla frequenza del kernel
+             * Il valore di default è 100, ma può succede che sia diverso in kernel custom
+             *
+             * ATTENZIONE!!! Nel caso che il consumo dipenda dalla percentuale di carico piuttosto
+             * piuttosto che dal tempo di utilizzo bisogna modificare la riga sotto
+             * andando a riempire con i valori in percentuale
+             * TODO serve davvero convertire da jiffies a ms? se tutti i valori di timing sono in
+             * jffies credo di no
+             */
+//            double userPerc = linkState.getUsrPerc();
+//            double sysPerc = linkState.getSysPerc();
+//            uidData.init(sysPerc, userPerc, freq);
+
+            uidData.init(linkState.getSysPerc(), linkState.getUsrPerc(), freq);
+
+//            double sum = userPerc+sysPerc;
+//            if(sum > 0.0)
+//                Log.i(TAG, "calculateIteration: UID=" + uid + " " +
+//                        String.format(Locale.getDefault(), "%1$.1f", sum) + "%");
+//            double power = HammerheadPowerCalculator.getTESTPower(uidData);
+//            if(power > 0.0)
+//                Log.i(TAG, "calculateIteration: UID=" + uid + " " + power);
+
+            // Non sembra abbia un utilizzo reale sta funzione
+            //predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
+
             result.addUidPowerData(uid, uidData);
         }
 
+        // compTime / #activeCores = CPU%
         Log.i(TAG, "calculateIteration: computation time for this iteration: " + (float) (compTime / 100.0));
-        Log.i(TAG, "calculateIteration: PID=" + powerPid + " UID=" + powerUid);
 
 
         return result;
@@ -332,11 +355,11 @@ public class CPU extends PowerComponent {
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
-        private long sumUsr;    //Delta value
+        private long deltaUsr;
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
-        private long sumSys;    //Delta value
+        private long deltaSys;
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
@@ -357,8 +380,8 @@ public class CPU extends PowerComponent {
             /* Process is still running but actually reading the cpu utilization has
              * been skipped this iteration to avoid wasting cpu cycles as this process
              * has not been very active recently. */
-            sumUsr = 0;
-            sumSys = 0;
+            deltaUsr = 0;
+            deltaSys = 0;
             deltaTotal = totalTime - lastTotal;
             if (deltaTotal < 1) deltaTotal = 1;
             lastTotal = totalTime;
@@ -367,8 +390,8 @@ public class CPU extends PowerComponent {
 
         public void updateState(long usrTime, long sysTime, long totalTime,
                                 long iteration) {
-            sumUsr = usrTime - lastUsr;
-            sumSys = sysTime - lastSys;
+            deltaUsr = usrTime - lastUsr;
+            deltaSys = sysTime - lastSys;
             deltaTotal = totalTime - lastTotal;
             if (deltaTotal < 1) deltaTotal = 1;
             lastUsr = usrTime;
@@ -388,16 +411,16 @@ public class CPU extends PowerComponent {
         }
 
         public void absorb(CpuStateKeeper s) {
-            sumUsr += s.sumUsr;
-            sumSys += s.sumSys;
+            deltaUsr += s.deltaUsr;
+            deltaSys += s.deltaSys;
         }
 
         public double getUsrPerc() {
-            return 100.0 * sumUsr / Math.max(sumUsr + sumSys, deltaTotal);
+            return 100.0 * deltaUsr / Math.max(deltaUsr + deltaSys, deltaTotal);
         }
 
         public double getSysPerc() {
-            return 100.0 * sumSys / Math.max(sumUsr + sumSys, deltaTotal);
+            return 100.0 * deltaSys / Math.max(deltaUsr + deltaSys, deltaTotal);
         }
 
         public boolean isAlive(long iteration) {
