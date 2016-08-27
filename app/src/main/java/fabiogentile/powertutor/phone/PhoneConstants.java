@@ -67,6 +67,8 @@ public interface PhoneConstants {
      */
     double[] cpuFreqs();
 
+    double cpuBase();
+
     /* Gives the usage for the audio output being used.  The model doesn't
      * currently take into account volume.
      */

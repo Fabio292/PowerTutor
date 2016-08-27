@@ -135,7 +135,7 @@ public class PhoneSelector {
         //TODO: What about bluetooth?
         //TODO: LED light on the Nexus
 
-//        /* Add display component. */
+        /* Add display component. */
 //        if (hasOled()) {
 //            components.add(new OLED(context, constants));
 //            functions.add(new PowerFunction() {
@@ -152,7 +152,7 @@ public class PhoneSelector {
 //            });
 //        }
 
-        /* Add CPU component. */
+//         Add CPU component.
         components.add(new CPU(constants));
         functions.add(new PowerFunction() {
             public double calculate(PowerData data) {

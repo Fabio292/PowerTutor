@@ -313,6 +313,7 @@ public class SystemInfo {
         return (suProcess != null) && (suProcessInput != null) && (suProcessOutput != null);
     }
 
+    // TODO: 27/08/16 spostare gli update in un servizio?
     /**
      * Update the mapPidUid hashmap
      */

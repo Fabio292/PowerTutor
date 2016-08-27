@@ -103,6 +103,11 @@ public class DreamConstants implements PhoneConstants {
         return arrayCpuFreqs;
     }
 
+    @Override
+    public double cpuBase() {
+        return 0;
+    }
+
     public double audioPower() {
         return 384.62;
     }

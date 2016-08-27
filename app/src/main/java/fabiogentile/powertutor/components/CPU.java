@@ -38,7 +38,7 @@ public class CPU extends PowerComponent {
     private static final String TAG = "CPU";
     private static final String CPU_FREQ_FILE = "/proc/cpuinfo";
     private static final String STAT_FILE = "/proc/stat";
-    private CpuStateKeeper cpuState;
+    private CpuStateKeeper cpuStateAll;
     private SparseArray<CpuStateKeeper> pidStates;
     private SparseArray<CpuStateKeeper> uidLinks;
     private int[] pids;
@@ -47,7 +47,7 @@ public class CPU extends PowerComponent {
 
     public CPU(PhoneConstants constants) {
         this.constants = constants;
-        cpuState = new CpuStateKeeper(SystemInfo.AID_ALL);
+        cpuStateAll = new CpuStateKeeper(SystemInfo.AID_ALL);
         pidStates = new SparseArray<CpuStateKeeper>();
         uidLinks = new SparseArray<CpuStateKeeper>();
         statsBuf = new long[8];
@@ -74,13 +74,21 @@ public class CPU extends PowerComponent {
         long sysTime = statsBuf[SystemInfo.INDEX_SYS_TIME];
         long totalTime = statsBuf[SystemInfo.INDEX_TOTAL_TIME];
 
-        boolean init = cpuState.isInitialized();
-        cpuState.updateState(usrTime, sysTime, totalTime, iteration);
+        boolean init = cpuStateAll.isInitialized();
+        cpuStateAll.updateState(usrTime, sysTime, totalTime, iteration);
+
+        double userPercAll = 0.0;
+        double sysPercAll = 0.0;
 
         if (init) {
             CpuData data = CpuData.obtain();
-            data.init(cpuState.getUsrPerc(), cpuState.getSysPerc(), freq);
+            // TODO: 24/08/16 0-100 -> 0-1, eventualmente correggere se cambiano le costanti
+            userPercAll = cpuStateAll.getUsrPerc() / 100.0;
+            sysPercAll = cpuStateAll.getSysPerc() / 100.0;
+            data.init(sysPercAll, userPercAll, freq);
             result.setPowerData(data);
+        } else {
+            Log.e(TAG, "calculateIteration: ???");
         }
 
         uidLinks.clear();
@@ -129,6 +137,7 @@ public class CPU extends PowerComponent {
 //                    if ((pidState.deltaUsr + pidState.deltaSys) > 50)
 //                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.deltaUsr + " S=" + pidState.deltaSys);
                     //ok++;
+
                     if (!init) {
                         continue;
                     }
@@ -196,15 +205,17 @@ public class CPU extends PowerComponent {
              * TODO serve davvero convertire da jiffies a ms? se tutti i valori di timing sono in
              * jffies credo di no
              */
-            double userPerc = linkState.getUsrPerc();
-            double sysPerc = linkState.getSysPerc();
+            // TODO: 24/08/16 0-100 -> 0-1, eventualmente correggere se cambiano le costanti
+            double userPerc = linkState.getUsrPerc() / 100.0;
+            double sysPerc = linkState.getSysPerc() / 100.0;
             double sum = userPerc + sysPerc;
 
 //            if(sum > 0.0)
 //                Log.i(TAG, "calculateIteration: uid=" + uid + " " + sum + "%");
 //            uidData.init(sysPerc, userPerc, freq);
 
-            uidData.init(sysPerc / 100.0, userPerc / 100.0, freq);
+            //uidData.init(sysPerc , userPerc , freq);
+            uidData.init(userPerc, sysPerc, freq);
 
 //            double sum = userPerc+sysPerc;
 //            if(sum > 0.0)
@@ -221,7 +232,9 @@ public class CPU extends PowerComponent {
         }
 
         // compTime / #activeCores = CPU%
-        Log.i(TAG, "calculateIteration: computation time for this iteration: " + (float) (compTime / 100.0));
+
+        //String allTime = String.format(Locale.getDefault(), "%1$.2f", userPercAll + sysPercAll);
+        //Log.i(TAG, "calculateIteration: computation time: " + (float) (compTime / 100.0) + " (" + allTime + ")");
 
 
         return result;
@@ -315,6 +328,7 @@ public class CPU extends PowerComponent {
         public double sysPerc;
         public double usrPerc;
         public double freq;
+        public boolean isUidAll = false;
 
         private CpuData() {
         }
@@ -323,6 +337,10 @@ public class CPU extends PowerComponent {
             CpuData result = recycler.obtain();
             if (result != null) return result;
             return new CpuData();
+        }
+
+        public void setUidAll(boolean val) {
+            this.isUidAll = val;
         }
 
         @Override

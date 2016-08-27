@@ -34,11 +34,13 @@ import java.io.OutputStreamWriter;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Vector;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
+import fabiogentile.powertutor.components.CPU;
 import fabiogentile.powertutor.components.OLED;
 import fabiogentile.powertutor.components.PowerComponent;
 import fabiogentile.powertutor.phone.PhoneConstants;
@@ -196,6 +198,7 @@ public class PowerEstimator implements Runnable {
                 }
 
                 int compPower = 0;
+                double totTime = 0.0, totTimeAll = 0.0;
 
                 SparseArray<PowerData> uidPower = data.getUidPowerData();
                 //Log.i(TAG, "run: [" + comp.getComponentName() + "] + uid# " + uidPower.size());
@@ -203,6 +206,17 @@ public class PowerEstimator implements Runnable {
                 for (int j = 0; j < uidPower.size(); j++) {
                     int uid = uidPower.keyAt(j);
                     PowerData powerData = uidPower.valueAt(j);
+
+                    if (powerData instanceof CPU.CpuData) {
+                        if (uid != SystemInfo.AID_ALL)
+                            totTime += (((CPU.CpuData) powerData).sysPerc) + (((CPU.CpuData) powerData).usrPerc);
+                        else {
+                            totTimeAll += (((CPU.CpuData) powerData).sysPerc) + (((CPU.CpuData) powerData).usrPerc);
+                            //Add base CPU power for general UID
+                            ((CPU.CpuData) powerData).setUidAll(true);
+                        }
+                    }
+
                     int power = (int) powerFunctions.get(i).calculate(powerData);
 
                     //Log.i(TAG, "run: uid=" + uid + " power=" + power);
@@ -213,11 +227,11 @@ public class PowerEstimator implements Runnable {
 //                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
 
                     powerData.setCachedPower(power);
+                    compPower += power;
                     //Add infromation to uid history
                     histories.get(i).add(uid, iter, power);
                     if (uid == SystemInfo.AID_ALL) {
                         totalPower += power;
-                        compPower += power;
                     }
                     if (i == oledId) {
                         OLED.OledData oledData = (OLED.OledData) powerData;
@@ -226,8 +240,11 @@ public class PowerEstimator implements Runnable {
                         }
                     }
                 }
+                String formattedTime = String.format(Locale.getDefault(), "%1$.2f", totTime);
+                String formattedTimeAll = String.format(Locale.getDefault(), "%1$.2f", totTimeAll);
 
-                Log.i(TAG, "run: [" + comp.getComponentName() + "] " + compPower + " mW");
+                Log.i(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
+                        " - " + totalPower + ") time " + formattedTime + " " + formattedTimeAll);
             }
             //</editor-fold>
 

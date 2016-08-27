@@ -13,6 +13,8 @@ public class RoyssConstants extends HammerheadConstants {
 
     private static final double[] arrayGpsStatePower = {0.0, 173.55, 429.55};
 
+    private static final double cpuBaseCond = 0.0; // TODO: 25/08/16 mettere valore
+
     private static final double[] arrayWifiLinkRatios = {
             47.122645, 46.354821, 43.667437, 43.283525, 40.980053, 39.44422, 38.676581,
             34.069637, 29.462693, 20.248805, 11.034917, 6.427122
