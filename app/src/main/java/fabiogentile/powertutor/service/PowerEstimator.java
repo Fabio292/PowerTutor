@@ -208,8 +208,10 @@ public class PowerEstimator implements Runnable {
                     PowerData powerData = uidPower.valueAt(j);
 
                     if (powerData instanceof CPU.CpuData) {
-                        if (uid != SystemInfo.AID_ALL)
+                        if (uid != SystemInfo.AID_ALL) {
                             totTime += (((CPU.CpuData) powerData).sysPerc) + (((CPU.CpuData) powerData).usrPerc);
+                            ((CPU.CpuData) powerData).setUidAll(false);
+                        }
                         else {
                             totTimeAll += (((CPU.CpuData) powerData).sysPerc) + (((CPU.CpuData) powerData).usrPerc);
                             //Add base CPU power for general UID
@@ -225,6 +227,8 @@ public class PowerEstimator implements Runnable {
 //                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + sysInfo.getAppId(uid, pm) + " -> " + power);
 //                    else
 //                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
+
+                    // TODO: 27/08/16 capire come mai (111 - 95) time 0.08 0.15 [usermW > sysmW anche se userTime < sysTime]
 
                     powerData.setCachedPower(power);
                     compPower += power;

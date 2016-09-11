@@ -26,6 +26,8 @@ import android.util.Log;
 import java.util.List;
 
 import fabiogentile.powertutor.components.CPU;
+import fabiogentile.powertutor.components.LCD;
+import fabiogentile.powertutor.components.OLED;
 import fabiogentile.powertutor.components.PowerComponent;
 import fabiogentile.powertutor.service.PowerData;
 
@@ -136,21 +138,21 @@ public class PhoneSelector {
         //TODO: LED light on the Nexus
 
         /* Add display component. */
-//        if (hasOled()) {
-//            components.add(new OLED(context, constants));
-//            functions.add(new PowerFunction() {
-//                public double calculate(PowerData data) {
-//                    return calculator.getOledPower((OLED.OledData) data);
-//                }
-//            });
-//        } else {
-//            components.add(new LCD(context, constants));
-//            functions.add(new PowerFunction() {
-//                public double calculate(PowerData data) {
-//                    return calculator.getLcdPower((LCD.LcdData) data);
-//                }
-//            });
-//        }
+        if (hasOled()) {
+            components.add(new OLED(context, constants));
+            functions.add(new PowerFunction() {
+                public double calculate(PowerData data) {
+                    return calculator.getOledPower((OLED.OledData) data);
+                }
+            });
+        } else {
+            components.add(new LCD(context, constants));
+            functions.add(new PowerFunction() {
+                public double calculate(PowerData data) {
+                    return calculator.getLcdPower((LCD.LcdData) data);
+                }
+            });
+        }
 
 //         Add CPU component.
         components.add(new CPU(constants));

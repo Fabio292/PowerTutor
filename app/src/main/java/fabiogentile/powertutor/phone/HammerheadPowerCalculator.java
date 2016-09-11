@@ -131,8 +131,10 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
 
         ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
 
-        if (data.isUidAll)
+        if (data.isUidAll) {
             ret += coeffs.cpuBase(); //Add base cpu power for uid_ALL
+            //Log.i(TAG, "getCpuPower: " + ret);
+        }
 
         return ret;
     }

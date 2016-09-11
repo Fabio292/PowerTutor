@@ -36,7 +36,7 @@ public class HammerheadConstants implements PhoneConstants {
 
 
     /**
-     * Values expressed for 100% cpu load?
+     * Values expressed for 100% cpu load
      */
     private static final double[] arrayCpuPowerRatios = {214.23, 326.34,
             368.52, 513.56, 553.52, 629.74,
@@ -46,8 +46,8 @@ public class HammerheadConstants implements PhoneConstants {
     private static final double[] arrayCpuFreqs = {300.0, 422.4,
             652.8, 729.6, 883.2, 960.0,
             1036.8, 1190.4, 1267.2, 1497.6,
-
             1574.4, 1728.0, 1958.4, 2265.6};
+
     // TODO: 23/08/16 add base power?
     private static final double cpuBaseCons = 64.38;
 
@@ -238,12 +238,13 @@ public class HammerheadConstants implements PhoneConstants {
         return sensorPowerArray;
     }
 
+    // TODO: 11/09/16
     public double getMaxPower(String componentName) {
         if ("LCD".equals(componentName)) {
             return lcdBacklight() + lcdBrightness() * 255;
         } else if ("CPU".equals(componentName)) {
             double[] ratios = cpuPowerRatios();
-            return ratios[ratios.length - 1] * 100;
+            return ratios[ratios.length - 1];
         } else if ("Audio".equals(componentName)) {
             return audioPower();
         } else if ("GPS".equals(componentName)) {

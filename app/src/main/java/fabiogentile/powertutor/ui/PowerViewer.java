@@ -56,6 +56,7 @@ public class PowerViewer extends Activity {
     private static final String TAG = "PowerViewer";
     private static final int MENU_OPTIONS = 0;
     private static final int MENU_TOGGLE_COLLECTING = 1;
+    private final int CHART_HEIGHT_DP = 180;
     private SharedPreferences prefs;
     private int uid;
     private int components;
@@ -70,8 +71,16 @@ public class PowerViewer extends Activity {
     private Handler handler;
     private LinearLayout chartLayout;
     private SystemInfo sysInfo;
+    //Margins values are in DP
+    private int marginT = 10;
+    private int marginL = 20;
+    private int marginB = 25;
+    private int marginR = 5;
+    private int[] margins;
 
     public void refreshView() {
+
+        //Check if service is up
         if (counterService == null) {
             TextView loadingText = new TextView(this);
             loadingText.setText("Waiting for profiler service...");
@@ -96,31 +105,42 @@ public class PowerViewer extends Activity {
             }
         }
         boolean showTotal = prefs.getBoolean("showTotalPower", false);
+
+
         collectors = new ValueCollector[(showTotal ? 1 : 0) + components];
 
         int pos = 0;
+        // i=-1 means the total power chart
         for (int i = showTotal ? -1 : 0; i < componentNames.length; i++) {
             if (i != -1 && (noUidMask & 1 << i) != 0) {
+                //Check if this component must be skipped
                 continue;
             }
+
             String name = i == -1 ? "Total" : componentNames[i];
             double mxPower = (i == -1 ? 2100.0 : componentsMaxPower[i]) * 1.05;
 
-            XYSeries series = new XYSeries(name);
+            Log.d(TAG, "refreshView: genero " + componentNames[i]);
+
+            //Set up dataset series
+            XYSeries series = new XYSeries(name + " mW");
             XYMultipleSeriesDataset mseries = new XYMultipleSeriesDataset();
             mseries.addSeries(series);
 
             XYMultipleSeriesRenderer renderer = new XYMultipleSeriesRenderer();
             XYSeriesRenderer srenderer = new XYSeriesRenderer();
-            // TODO: 18/08/16
-//            renderer.setLabelsTextSize(sysInfo.dpToPixel(15));
-//            renderer.setAxisTitleTextSize(sysInfo.dpToPixel(15));
-//            renderer.setChartTitleTextSize(sysInfo.dpToPixel(15));
-//            renderer.setLegendTextSize(sysInfo.dpToPixel(15));
 
+            // TODO: 18/08/16
+            renderer.setLabelsTextSize(sysInfo.dpToPixel(15));
+            renderer.setAxisTitleTextSize(sysInfo.dpToPixel(15));
+            renderer.setChartTitleTextSize(sysInfo.dpToPixel(15));
+            renderer.setLegendTextSize(sysInfo.dpToPixel(15));
+            renderer.setMargins(margins);
             renderer.setYAxisMin(0.0);
             renderer.setYAxisMax(mxPower);
-            renderer.setYTitle(name + "(mW)");
+            //renderer.setYTitle(name + "(mW)");
+            renderer.setFitLegend(true);
+
 
             int clr = PowerPie.COLORS[(PowerPie.COLORS.length + i) % PowerPie.COLORS.length];
             srenderer.setColor(clr);
@@ -128,11 +148,11 @@ public class PowerViewer extends Activity {
             srenderer.setFillBelowLineColor(((clr >> 1) & 0x7F7F7F) | (clr & 0xFF000000));
             renderer.addSeriesRenderer(srenderer);
 
-
             View chartView = new GraphicalView(this, new CubicLineChart(mseries, renderer, 0.5f));
-            chartView.setMinimumHeight(sysInfo.dpToPixel(120));
+            chartView.setMinimumHeight(sysInfo.dpToPixel(CHART_HEIGHT_DP));
             chartLayout.addView(chartView);
 
+            //Setup the data collector and chart updater
             collectors[pos] = new ValueCollector(series, renderer, chartView, i);
             if (handler != null) {
                 handler.post(collectors[pos]);
@@ -143,7 +163,7 @@ public class PowerViewer extends Activity {
         /* We're giving 100 pixels per graph of vertical space for the chart view.
            If we don't specify a minimum height the chart view ends up having a
            height of 0 so this is important. */
-        chartLayout.setMinimumHeight(sysInfo.dpToPixel(120) * components);
+        chartLayout.setMinimumHeight(sysInfo.dpToPixel(CHART_HEIGHT_DP) * components);
 
         ScrollView scrollView = new ScrollView(this) {
             public boolean onInterceptTouchEvent(android.view.MotionEvent ev) {
@@ -175,6 +195,9 @@ public class PowerViewer extends Activity {
 
         serviceIntent = new Intent(this, UMLoggerService.class);
         conn = new CounterServiceConnection();
+
+        margins = new int[]{sysInfo.dpToPixel(marginT), sysInfo.dpToPixel(marginL),
+                sysInfo.dpToPixel(marginB), sysInfo.dpToPixel(marginR)};
     }
 
     @Override
@@ -273,6 +296,9 @@ public class PowerViewer extends Activity {
         }
     }
 
+    /**
+     * Class used to generate data series collecting from component history
+     */
     public class ValueCollector implements Runnable {
         int[] values;
         private XYSeries series;
