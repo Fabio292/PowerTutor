@@ -356,8 +356,8 @@ public class CPU extends PowerComponent {
 
         public void writeLogDataInfo(OutputStreamWriter out) throws IOException {
             StringBuilder res = new StringBuilder();
-            res.append("CPU-sys ").append(Math.round(sysPerc))
-                    .append("\nCPU-usr ").append(Math.round(usrPerc))
+            res.append("CPU-sys ").append(Math.round(sysPerc * 100))
+                    .append("\nCPU-usr ").append(Math.round(usrPerc * 100))
                     .append("\nCPU-freq ").append(freq)
                     .append("\n");
             out.write(res.toString());
