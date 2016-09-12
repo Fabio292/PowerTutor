@@ -113,6 +113,7 @@ public class PowerEstimator implements Runnable {
         /* Open up the log file if possible. */
         try {
             String logFilename = context.getFileStreamPath("PowerTrace.log").getAbsolutePath();
+            Log.d(TAG, "openLog: logfile: " + logFilename);
 
             if (init && prefs.getBoolean("sendPermission", true) &&
                     new File(logFilename).length() > 0) {
@@ -125,7 +126,11 @@ public class PowerEstimator implements Runnable {
             Deflater deflater = new Deflater();
             deflater.setDictionary(DEFLATE_DICTIONARY.getBytes());
             deflateStream = new DeflaterOutputStream(new FileOutputStream(logFilename));
-            logStream = new OutputStreamWriter(deflateStream);
+            //logStream = new OutputStreamWriter(deflateStream);
+
+            // TODO: 12/09/16 NORMAL OUTPUT STREAM USED ONLY FOR DEBUG
+            logStream = new OutputStreamWriter(new FileOutputStream(logFilename));
+            writeToLog("Prima linea");
 
         } catch (IOException e) {
             logStream = null;
@@ -247,7 +252,7 @@ public class PowerEstimator implements Runnable {
                 String formattedTime = String.format(Locale.getDefault(), "%1$.2f", totTime);
                 String formattedTimeAll = String.format(Locale.getDefault(), "%1$.2f", totTimeAll);
 
-                Log.i(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
+                Log.d(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
                         " - " + totalPower + ") time " + formattedTime + " " + formattedTimeAll);
             }
             //</editor-fold>
@@ -320,9 +325,9 @@ public class PowerEstimator implements Runnable {
             //</editor-fold>
 
             // Update the widget
-            if (iter % 60 == 0) { // TODO: 13/08/16 remove widget?
-                PowerWidget.updateWidget(context, this);
-            }
+//            if (iter % 60 == 0) { // TODO: 13/08/16 remove widget?
+//                PowerWidget.updateWidget(context, this);
+//            }
 
             //<editor-fold desc="Log information">
             if (bst.hasCurrent()) {
@@ -343,8 +348,7 @@ public class PowerEstimator implements Runnable {
                         "screen_brightness_mode", 0) != 0) {
                     writeToLog("setting_brightness automatic\n");
                 } else {
-                    int brightness = Settings.System.getInt(
-                            context.getContentResolver(),
+                    int brightness = Settings.System.getInt(context.getContentResolver(),
                             Settings.System.SCREEN_BRIGHTNESS, -1);
                     if (brightness != -1) {
                         writeToLog("setting_brightness " + brightness + "\n");
@@ -364,21 +368,20 @@ public class PowerEstimator implements Runnable {
                     writeToLog("setting_httpproxy " + httpProxy + "\n");
                 }
             }
-            //</editor-fold>
 
             /* Let's only grab memory information every 10 seconds to try to keep log
              * file size down and the notice_data table size down.
              */
             boolean hasMem = false;
-            if (iter % 10 == 0) {
-                hasMem = sysInfo.getMemInfo(memInfo);
-            }
+//            if (iter % 10 == 0) {
+//                hasMem = sysInfo.getMemInfo(memInfo);
+//            }
 
-            //<editor-fold desc="Finalize LOG and upload">
             synchronized (fileWriteLock) {
                 if (logStream != null) {
                     try {
                         if (firstLogIteration) {
+                            Log.d(TAG, "run: FIRST LOG ITERATION");
                             firstLogIteration = false;
                             logStream.write("time " + System.currentTimeMillis() + "\n");
                             Calendar cal = new GregorianCalendar();
@@ -389,6 +392,7 @@ public class PowerEstimator implements Runnable {
 
                             if (NotificationService.available())
                                 logStream.write("notifications-active\n");
+
                             if (bst.hasFullCapacity())
                                 logStream.write("batt_full_capacity " + bst.getFullCapacity() + "\n");
 
@@ -397,34 +401,37 @@ public class PowerEstimator implements Runnable {
                                     if (uid < SystemInfo.AID_APP) {
                                         continue;
                                     }
-                                    logStream.write("associate " + uid + " " + uidAppIds.get(uid)
-                                            + "\n");
+                                    logStream.write("associate " + uid + " " + uidAppIds.get(uid) + "\n");
                                 }
                             }
                         }
 
                         logStream.write("begin " + iter + "\n");
                         logStream.write("total-power " + (long) Math.round(totalPower) + '\n');
+
                         if (hasMem)
                             logStream.write("meminfo " + memInfo[0] + " " + memInfo[1] +
                                     " " + memInfo[2] + " " + memInfo[3] + "\n");
 
-                        // Log information for components
+                        // Log information for every
                         for (int i = 0; i < componentsNumber; i++) {
+                            //Log.d(TAG, "run: Log for component " + i);
                             IterationData data = dataTemp[i];
+
                             if (data != null) {
                                 String name = powerComponents.get(i).getComponentName();
                                 SparseArray<PowerData> uidData = data.getUidPowerData();
+
+                                //Iterate through UIDs
                                 for (int j = 0; j < uidData.size(); j++) {
                                     int uid = uidData.keyAt(j);
                                     PowerData powerData = uidData.valueAt(j);
+
                                     if (uid == SystemInfo.AID_ALL) {
-                                        logStream.write(name + " " + (long) Math.round(
-                                                powerData.getCachedPower()) + "\n");
+                                        logStream.write(name + "-ALL " + (long) Math.round(powerData.getCachedPower()) + "\n");
                                         powerData.writeLogDataInfo(logStream);
                                     } else {
-                                        logStream.write(name + "-" + uid + " " + (long) Math.round(
-                                                powerData.getCachedPower()) + "\n");
+                                        logStream.write(name + "-" + uid + " " + (long) Math.round(powerData.getCachedPower()) + "\n");
                                     }
                                 }
                                 data.recycle();
@@ -435,25 +442,41 @@ public class PowerEstimator implements Runnable {
                     }
                 }
 
-                if (iter % 15 == 0 && prefs.getBoolean("sendPermission", true)) {
-                    /* Allow for LogUploader to decide if the log needs to be uploaded and
-                     * begin uploading if it decides it's necessary.
-                     */
-                    if (logUploader.shouldUpload()) {
-                        try {
-                            logStream.close();
-                        } catch (IOException e) {
-                            Log.w(TAG, "Failed to flush and close log stream");
-                        }
-                        logStream = null;
-                        logUploader.upload(context.getFileStreamPath("PowerTrace.log").getAbsolutePath());
-                        openLog(false);
-                        firstLogIteration = true;
-                    }
-                }
+                //Code upload part removed
+//                if (iter % 15 == 0 && prefs.getBoolean("sendPermission", true)) {
+//                    /* Allow for LogUploader to decide if the log needs to be uploaded and
+//                     * begin uploading if it decides it's necessary.
+//                     */
+//                    if (logUploader.shouldUpload()) {
+//                        try {
+//                            logStream.close();
+//                        } catch (IOException e) {
+//                            Log.w(TAG, "Failed to flush and close log stream");
+//                        }
+//                        logStream = null;
+//                        logUploader.upload(context.getFileStreamPath("PowerTrace.log").getAbsolutePath());
+//                        openLog(false);
+//                        firstLogIteration = true;
+//                    }
+//                }
+
             }
             //</editor-fold>
-        }
+
+            // TODO: 12/09/16 REMOVE IN PRODUCTION
+            if (iter % 1 == 0) { // Every 300 iterations (5 minutes)
+                synchronized (fileWriteLock) {
+                    if (logStream != null)
+                        try {
+                            logStream.flush();
+                        } catch (Exception e) {
+                            Log.w(TAG, "Failed to flush logfile: " + e);
+                        }
+                }
+            }
+
+        } //Thread loop 'run'
+
 
         // LOOP ENDED
 
@@ -468,6 +491,7 @@ public class PowerEstimator implements Runnable {
             powerComponents.get(i).interrupt();
         }
 
+
         try {
             logUploader.join();
         } catch (InterruptedException e) {
@@ -480,6 +504,8 @@ public class PowerEstimator implements Runnable {
             } catch (InterruptedException e) {
             }
         }
+
+        //This is reached only when service is stopped
 
         // Close logstream and flush everything to file
         synchronized (fileWriteLock) {
@@ -495,13 +521,20 @@ public class PowerEstimator implements Runnable {
         logUploader.plug(plugged);
     }
 
+    /**
+     * Write a message to log file
+     *
+     * @param m The message to be writed
+     */
     public void writeToLog(String m) {
         synchronized (fileWriteLock) {
-            if (logStream != null) try {
-                logStream.write(m);
-            } catch (IOException e) {
-                Log.w(TAG, "Failed to write message to power log");
-            }
+            if (logStream != null)
+                try {
+                    logStream.write(m);
+                    Log.d(TAG, "writeToLog: writed to log: " + m);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to write message to power log: " + e);
+                }
         }
     }
 

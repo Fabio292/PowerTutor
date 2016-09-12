@@ -47,6 +47,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -194,6 +195,10 @@ public class UMLogger extends Activity {
         if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
             permList.add(Manifest.permission.READ_EXTERNAL_STORAGE);
 
+        if (context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+            permList.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+
         //Check if some permission are needed
         if (permList.size() > 0) {
             String[] permArray = new String[permList.size()];
@@ -262,11 +267,10 @@ public class UMLogger extends Activity {
                         File writeFile = new File(
                                 Environment.getExternalStorageDirectory(), "PowerTrace" +
                                 System.currentTimeMillis() + ".log");
+
                         try {
-                            InflaterInputStream logIn = new InflaterInputStream(
-                                    openFileInput("PowerTrace.log"));
-                            BufferedOutputStream logOut = new BufferedOutputStream(
-                                    new FileOutputStream(writeFile));
+                            InflaterInputStream logIn = new InflaterInputStream(openFileInput("PowerTrace.log"));
+                            BufferedOutputStream logOut = new BufferedOutputStream(new FileOutputStream(writeFile));
 
                             byte[] buffer = new byte[20480];
                             for (int ln = logIn.read(buffer); ln != -1;
@@ -275,16 +279,16 @@ public class UMLogger extends Activity {
                             }
                             logIn.close();
                             logOut.close();
-                            Toast.makeText(UMLogger.this, "Wrote log to " +
-                                            writeFile.getAbsolutePath(),
+                            Toast.makeText(UMLogger.this, "Wrote log to " + writeFile.getAbsolutePath(),
                                     Toast.LENGTH_SHORT).show();
                             return;
-                        } catch (java.io.EOFException e) {
+
+                        } catch (EOFException e) {
                             Toast.makeText(UMLogger.this, "Wrote log to " +
-                                            writeFile.getAbsolutePath(),
-                                    Toast.LENGTH_SHORT).show();
+                                    writeFile.getAbsolutePath(), Toast.LENGTH_SHORT).show();
                             return;
                         } catch (IOException e) {
+                            Log.e(TAG, "failed to save log: " + e.getMessage());
                         }
                         Toast.makeText(UMLogger.this, "Failed to write log to sdcard",
                                 Toast.LENGTH_SHORT).show();
