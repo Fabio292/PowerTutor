@@ -130,7 +130,6 @@ public class PowerEstimator implements Runnable {
 
             // TODO: 12/09/16 NORMAL OUTPUT STREAM USED ONLY FOR DEBUG
             logStream = new OutputStreamWriter(new FileOutputStream(logFilename));
-            writeToLog("Prima linea");
 
         } catch (IOException e) {
             logStream = null;
@@ -532,7 +531,7 @@ public class PowerEstimator implements Runnable {
             if (logStream != null)
                 try {
                     logStream.write(m);
-                    Log.d(TAG, "writeToLog: writed to log: " + m);
+                    //Log.d(TAG, "writeToLog: writed to log: " + m);
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to write message to power log: " + e);
                 }

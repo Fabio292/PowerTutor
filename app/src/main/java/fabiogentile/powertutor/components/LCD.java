@@ -56,7 +56,7 @@ public class LCD extends PowerComponent {
         }
 
         foregroundDetector = new ForegroundDetector((ActivityManager)
-                context.getSystemService(Context.ACTIVITY_SERVICE));
+                context.getSystemService(Context.ACTIVITY_SERVICE), context);
         broadcastReceiver = new BroadcastReceiver() {
             public void onReceive(Context context, Intent intent) {
                 synchronized (this) {

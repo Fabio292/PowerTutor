@@ -76,7 +76,7 @@ public class OLED extends PowerComponent {
         screenOn = true;
 
         foregroundDetector = new ForegroundDetector((ActivityManager)
-                context.getSystemService(Context.ACTIVITY_SERVICE));
+                context.getSystemService(Context.ACTIVITY_SERVICE), context);
         broadcastReceiver = new BroadcastReceiver() {
             public void onReceive(Context context, Intent intent) {
                 synchronized (this) {
