@@ -25,11 +25,15 @@ import android.util.Log;
 
 import java.util.List;
 
+import fabiogentile.powertutor.components.Audio;
 import fabiogentile.powertutor.components.CPU;
+import fabiogentile.powertutor.components.GPS;
 import fabiogentile.powertutor.components.LCD;
 import fabiogentile.powertutor.components.OLED;
 import fabiogentile.powertutor.components.PowerComponent;
+import fabiogentile.powertutor.components.Wifi;
 import fabiogentile.powertutor.service.PowerData;
+import fabiogentile.powertutor.util.SystemInfo;
 
 public class PhoneSelector {
     public static final int PHONE_UNKNOWN = 0;
@@ -154,7 +158,7 @@ public class PhoneSelector {
             });
         }
 
-//         Add CPU component.
+        /* Add CPU component. */
         components.add(new CPU(constants));
         functions.add(new PowerFunction() {
             public double calculate(PowerData data) {
@@ -163,17 +167,17 @@ public class PhoneSelector {
         });
 
 
-//        /* Add Wifi component. */
-//        String wifiInterface =
-//                SystemInfo.getInstance().getProperty("wifi.interface");
-//        if (wifiInterface != null && wifiInterface.length() != 0) {
-//            components.add(new Wifi(context, constants));
-//            functions.add(new PowerFunction() {
-//                public double calculate(PowerData data) {
-//                    return calculator.getWifiPower((Wifi.WifiData) data);
-//                }
-//            });
-//        }
+        /* Add Wifi component. */
+        String wifiInterface =
+                SystemInfo.getInstance().getProperty("wifi.interface");
+        if (wifiInterface != null && wifiInterface.length() != 0) {
+            components.add(new Wifi(context, constants));
+            functions.add(new PowerFunction() {
+                public double calculate(PowerData data) {
+                    return calculator.getWifiPower((Wifi.WifiData) data);
+                }
+            });
+        }
 
 //        /* Add 3G component. */
 //        if (constants.threegInterface().length() != 0) {
@@ -185,30 +189,31 @@ public class PhoneSelector {
 //            });
 //        }
 
-//        /* Add GPS component. */
-//        components.add(new GPS(context, constants));
-//        functions.add(new PowerFunction() {
-//            public double calculate(PowerData data) {
-//                return calculator.getGpsPower((GpsData) data);
-//            }
-//        });
+        /* Add GPS component. */
+        components.add(new GPS(context, constants));
+        functions.add(new PowerFunction() {
+            public double calculate(PowerData data) {
+                return calculator.getGpsPower((GPS.GpsData) data);
+            }
+        });
 
-//        /* Add Audio component. */
-//        components.add(new Audio(context));
-//        functions.add(new PowerFunction() {
-//            public double calculate(PowerData data) {
-//                return calculator.getAudioPower((AudioData) data);
-//            }
-//        });
+        /* Add Audio component. */
+        components.add(new Audio(context));
+        functions.add(new PowerFunction() {
+            public double calculate(PowerData data) {
+                return calculator.getAudioPower((Audio.AudioData) data);
+            }
+        });
 //
 //        /* Add Sensors component if avaialble. */
 //        if (NotificationService.available()) {
 //            components.add(new Sensors(context));
 //            functions.add(new PowerFunction() {
 //                public double calculate(PowerData data) {
-//                    return calculator.getSensorPower((SensorData) data);
+//                    return calculator.getSensorPower((Sensors.SensorData) data);
 //                }
 //            });
 //        }
+
     }
 }

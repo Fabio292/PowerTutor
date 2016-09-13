@@ -108,14 +108,13 @@ public class UMLoggerService extends Service {
             if (intent.getAction().equals(Intent.ACTION_AIRPLANE_MODE_CHANGED)) {
                 Bundle extra = intent.getExtras();
                 try {
-                    if ((Boolean) extra.get("state")) {
+                    if ((Boolean) extra.get("state"))
                         powerEstimator.writeToLog("airplane-mode on\n");
-                    } else {
+                    else
                         powerEstimator.writeToLog("airplane-mode off\n");
-                    }
+
                 } catch (ClassCastException e) {
-                    // Some people apparently are having this problem.  I'm not really
-                    // sure why this should happen.
+                    // Some people apparently are having this problem.
                     Log.w(TAG, "Couldn't determine airplane mode state");
                 }
             } else if (intent.getAction().equals(Intent.ACTION_BATTERY_LOW)) {
@@ -145,6 +144,8 @@ public class UMLoggerService extends Service {
     private NotificationManager notificationManager;
     private Notification.Builder builder;
     private TelephonyManager phoneManager;
+
+    //<editor-fold desc="Phone State Listener">
     PhoneStateListener phoneListener = new PhoneStateListener() {
         public void onServiceStateChanged(ServiceState serviceState) {
             switch (serviceState.getState()) {
@@ -215,6 +216,7 @@ public class UMLoggerService extends Service {
             powerEstimator.writeToLog("signal " + asu + "\n");
         }
     };
+    //</editor-fold>
 
     @Override
     public IBinder onBind(Intent intent) {

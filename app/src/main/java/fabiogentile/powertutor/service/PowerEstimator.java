@@ -431,7 +431,8 @@ public class PowerEstimator implements Runnable {
                                         logStream.write(name + "-ALL " + (long) Math.round(powerData.getCachedPower()) + "\n");
                                         powerData.writeLogDataInfo(logStream);
                                     } else {
-                                        logStream.write(name + "-" + uid + " " + (long) Math.round(powerData.getCachedPower()) + "\n");
+                                        logStream.write(name + "-" + uid + " " + sysInfo.getUidName(uid, pm) +
+                                                " " + (long) Math.round(powerData.getCachedPower()) + "\n");
                                     }
                                 }
                                 data.recycle();
