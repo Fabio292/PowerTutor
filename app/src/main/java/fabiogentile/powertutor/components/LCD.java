@@ -45,6 +45,7 @@ public class LCD extends PowerComponent {
     private BroadcastReceiver broadcastReceiver;
     private boolean screenOn;
     private String brightnessFile;
+    private int prevBrightness = 0;
 
     public LCD(Context context, PhoneConstants constants) {
         this.context = context;
@@ -74,7 +75,8 @@ public class LCD extends PowerComponent {
         intentFilter.addAction(Intent.ACTION_SCREEN_ON);
         context.registerReceiver(broadcastReceiver, intentFilter);
 
-        brightnessFile = constants.backlightFile();
+        //brightnessFile = constants.backlightFile();
+        brightnessFile = null;
     }
 
     @Override
@@ -92,7 +94,7 @@ public class LCD extends PowerComponent {
             screen = screenOn;
         }
 
-        int brightness;
+        int brightness = prevBrightness;
         if (brightnessFile != null) {
             brightness = (int) SystemInfo.getInstance().readLongFromFile(brightnessFile);
         } else {
@@ -100,14 +102,16 @@ public class LCD extends PowerComponent {
                 brightness = Settings.System.getInt(context.getContentResolver(),
                         Settings.System.SCREEN_BRIGHTNESS);
             } catch (Settings.SettingNotFoundException ex) {
-                Log.w(TAG, "Could not retrieve brightness information");
-                return result;
+                Log.e(TAG, "Could not retrieve brightness information");
+                brightness = prevBrightness;
             }
         }
-        if (brightness < 0 || 255 < brightness) {
+        if (brightness < 0 || brightness > brightness) {
             Log.w(TAG, "Could not retrieve brightness information");
-            return result;
+            brightness = prevBrightness;
         }
+
+        prevBrightness = brightness;
 
         LcdData data = LcdData.obtain();
         data.init(brightness, screen);

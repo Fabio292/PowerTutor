@@ -40,6 +40,7 @@ public class Wifi extends PowerComponent {
     public static final int POWER_STATE_HIGH = 1;
     public static final String[] POWER_STATE_NAMES = {"LOW", "HIGH"};
     private static final String TAG = "Wifi";
+    private final String DEFUAULT_INTERFACE_NAME = "wlan0";
     private PhoneConstants phoneConstants;
     private WifiManager wifiManager;
     private SystemInfo sysInfo;
@@ -52,19 +53,19 @@ public class Wifi extends PowerComponent {
     private String transBytesFile;
     private String readBytesFile;
     private File uidStatsFolder;
-    private String BASE_WIFI_DIRECTORY = "/sys/class/net/"; // TODO: 11/08/16 spostare nella classe specifica del device
-    
+    private String BASE_WIFI_DIRECTORY = "/sys/class/net/"; // TODO: 11/08/16 spostare nella classe specifica del device e recuperare da constants
 
     public Wifi(Context context, PhoneConstants phoneConstants) {
         this.phoneConstants = phoneConstants;
         wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
         sysInfo = SystemInfo.getInstance();
 
-    /* Try to grab the interface name.  If we can't find it will take a wild
-     * stab in the dark.
-     */
+        /* Try to grab the interface name.  If we can't find it will take a wild
+         * stab in the dark.
+         */
         String interfaceName = SystemInfo.getInstance().getProperty("wifi.interface");
-        if (interfaceName == null) interfaceName = "eth0";
+        if (interfaceName == null)
+            interfaceName = DEFUAULT_INTERFACE_NAME;
 
         lastLinkSpeed = -1;
         wifiState = new WifiStateKeeper(phoneConstants.wifiHighLowTransition(),
@@ -76,6 +77,7 @@ public class Wifi extends PowerComponent {
         readPacketsFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/rx_packets";
         transBytesFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/tx_bytes";
         readBytesFile = BASE_WIFI_DIRECTORY + interfaceName + "/statistics/rx_bytes";
+
         uidStatsFolder = new File("/proc/uid_stat");
     }
 
@@ -83,13 +85,16 @@ public class Wifi extends PowerComponent {
     public IterationData calculateIteration(long iteration) {
         IterationData result = IterationData.obtain();
 
+
         int wifiStateFlag = wifiManager.getWifiState();
+        //Manage Wifi OFF
         if (wifiStateFlag != WifiManager.WIFI_STATE_ENABLED &&
                 wifiStateFlag != WifiManager.WIFI_STATE_DISABLING) {
-      /* We need to allow the real iterface state keeper to reset it's state
-       * so that the next update it knows it's coming back from an off state.
-       * We also need to clear all the uid information.
-       */
+
+            /* We need to allow the real iterface state keeper to reset it's state
+             * so that the next update it knows it's coming back from an off state.
+             * We also need to clear all the uid information.
+             */
             wifiState.interfaceOff();
             uidStates.clear();
             lastLinkSpeed = -1;
@@ -104,31 +109,38 @@ public class Wifi extends PowerComponent {
         long receivePackets = sysInfo.readLongFromFile(readPacketsFile);
         long transmitBytes = sysInfo.readLongFromFile(transBytesFile);
         long receiveBytes = sysInfo.readLongFromFile(readBytesFile);
-        if (transmitPackets == -1 || receivePackets == -1 ||
-                transmitBytes == -1 || receiveBytes == -1) {
-      /* Couldn't read interface data files. */
-            Log.w(TAG, "Failed to read packet and byte counts from wifi interface");
+
+//        Log.v(TAG, "calculateIteration: txPkt:" + transmitPackets + " rxPkt:" + receivePackets
+//                    + " tkB:" + transmitBytes + " rxB:" + receiveBytes);
+
+        if (transmitPackets == -1 || receivePackets == -1 || transmitBytes == -1 || receiveBytes == -1) {
+            /* Couldn't read interface data files. */
+            Log.e(TAG, "Failed to read packet and byte counts from wifi interface");
             return result;
         }
 
-    /* Update the link speed every 15 seconds as pulling the WifiInfo structure
-     * from WifiManager is a little bit expensive.  This isn't really something
-     * that is likely to change very frequently anyway.
-     */
+        /* Update the link speed every 15 seconds as pulling the WifiInfo structure
+         * from WifiManager is a little bit expensive.  This isn't really something
+         * that is likely to change very frequently anyway.
+         */
         if (iteration % 15 == 0 || lastLinkSpeed == -1) {
             lastLinkSpeed = wifiManager.getConnectionInfo().getLinkSpeed();
         }
         double linkSpeed = lastLinkSpeed;
 
+        Log.d(TAG, "calculateIteration: linkSpeed:" + linkSpeed);
+
         if (wifiState.isInitialized()) {
-            wifiState.updateState(transmitPackets, receivePackets,
-                    transmitBytes, receiveBytes);
+            wifiState.updateState(transmitPackets, receivePackets, transmitBytes, receiveBytes);
+
             WifiData data = WifiData.obtain();
             data.init(wifiState.getPackets(), wifiState.getUplinkBytes(),
                     wifiState.getDownlinkBytes(), wifiState.getUplinkRate(),
                     linkSpeed, wifiState.getPowerState());
+
             result.setPowerData(data);
         } else {
+            // Do initialization
             wifiState.updateState(transmitPackets, receivePackets,
                     transmitBytes, receiveBytes);
         }
@@ -297,8 +309,8 @@ public class Wifi extends PowerComponent {
         public WifiStateKeeper(double highLowTransition, double lowHighTransition) {
             this.highLowTransition = highLowTransition;
             this.lowHighTransition = lowHighTransition;
-            lastTransmitPackets = lastReceivePackets = lastTransmitBytes =
-                    lastTime = -1;
+            lastTransmitPackets = lastReceivePackets = lastTransmitBytes = lastTime = -1;
+
             powerState = POWER_STATE_LOW;
             lastPackets = lastUplinkRate = 0;
             lastAverageTransmitPacketSize = 1000;
@@ -315,22 +327,31 @@ public class Wifi extends PowerComponent {
             return lastTime != -1;
         }
 
+        /**
+         * Update information and search for a state change
+         */
         public void updateState(long transmitPackets, long receivePackets,
                                 long transmitBytes, long receiveBytes) {
             long curTime = SystemClock.elapsedRealtime();
+
             if (lastTime != -1 && curTime > lastTime) {
                 double deltaTime = curTime - lastTime;
-                lastUplinkRate = (transmitBytes - lastTransmitBytes) / 1024.0 *
-                        7.8125 / deltaTime;
-                lastPackets = receivePackets + transmitPackets -
-                        lastReceivePackets - lastTransmitPackets;
+
+                // TODO: 14/09/16 MAGIC?? HACK?? 7.8125??
+                lastUplinkRate = (transmitBytes - lastTransmitBytes) / 1024.0 * 7.8125 / deltaTime;
+                //Log.d(TAG, "updateState: delta byte = " + (transmitBytes - lastTransmitBytes) +
+                //         " lastUplinkRate = " + lastUplinkRate);
+
+                lastPackets = receivePackets + transmitPackets - lastReceivePackets - lastTransmitPackets;
                 deltaUplinkBytes = transmitBytes - lastTransmitBytes;
                 deltaDownlinkBytes = receiveBytes - lastReceiveBytes;
+
                 if (transmitPackets != lastTransmitPackets) {
                     lastAverageTransmitPacketSize = 0.9 * lastAverageTransmitPacketSize +
                             0.1 * (transmitBytes - lastTransmitBytes) /
                                     (transmitPackets - lastTransmitPackets);
                 }
+
                 if (receivePackets != lastReceivePackets) {
                     lastAverageReceivePacketSize = 0.9 * lastAverageReceivePacketSize +
                             0.1 * (receiveBytes - lastReceiveBytes) /
