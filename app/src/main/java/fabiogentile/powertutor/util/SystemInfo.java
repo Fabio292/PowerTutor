@@ -425,6 +425,7 @@ public class SystemInfo {
                         sys = Integer.parseInt(token[14]); //stime
 
                         //tmp += " " + pid;
+                        // TODO: 15/09/16 controllare se pid esiste gia e modificare i valori 
                         long[] val = new long[2]; //I assume that max(INDEX_USER_TIME, INDEX_SYS_TIME) = 1
                         val[INDEX_USER_TIME] = usr;
                         val[INDEX_SYS_TIME] = sys;
