@@ -25,10 +25,9 @@ import android.util.Log;
 
 import java.util.List;
 
+import fabiogentile.powertutor.components.GPS;
 import fabiogentile.powertutor.components.PowerComponent;
-import fabiogentile.powertutor.components.Wifi;
 import fabiogentile.powertutor.service.PowerData;
-import fabiogentile.powertutor.util.SystemInfo;
 
 public class PhoneSelector {
     public static final int PHONE_UNKNOWN = 0;
@@ -163,16 +162,16 @@ public class PhoneSelector {
 
 
         /* Add Wifi component. */
-        String wifiInterface =
-                SystemInfo.getInstance().getProperty("wifi.interface");
-        if (wifiInterface != null && wifiInterface.length() != 0) {
-            components.add(new Wifi(context, constants));
-            functions.add(new PowerFunction() {
-                public double calculate(PowerData data) {
-                    return calculator.getWifiPower((Wifi.WifiData) data);
-                }
-            });
-        }
+//        String wifiInterface =
+//                SystemInfo.getInstance().getProperty("wifi.interface");
+//        if (wifiInterface != null && wifiInterface.length() != 0) {
+//            components.add(new Wifi(context, constants));
+//            functions.add(new PowerFunction() {
+//                public double calculate(PowerData data) {
+//                    return calculator.getWifiPower((Wifi.WifiData) data);
+//                }
+//            });
+//        }
 
 //        /* Add 3G component. */
 //        if (constants.threegInterface().length() != 0) {
@@ -185,12 +184,12 @@ public class PhoneSelector {
 //        }
 
 //        /* Add GPS component. */
-//        components.add(new GPS(context, constants));
-//        functions.add(new PowerFunction() {
-//            public double calculate(PowerData data) {
-//                return calculator.getGpsPower((GPS.GpsData) data);
-//            }
-//        });
+        components.add(new GPS(context, constants));
+        functions.add(new PowerFunction() {
+            public double calculate(PowerData data) {
+                return calculator.getGpsPower((GPS.GpsData) data);
+            }
+        });
 
 //        /* Add Audio component. */
 //        components.add(new Audio(context));

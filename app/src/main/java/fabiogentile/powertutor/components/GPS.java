@@ -78,18 +78,19 @@ public class GPS extends PowerComponent {
 
         int hookMethod = 0;
         final File gpsStatusFile = new File(HOOK_GPS_STATUS_FILE);
+
         if (gpsStatusFile.exists()) {
-      /* The libgps hack appears to be available.  Let's use this to gather
-       * our status updates from the GPS.
-       */
+            /* The libgps hack appears to be available.  Let's use this to gather
+             * our status updates from the GPS.
+             */
             hookMethod = HOOK_LIBGPS;
         } else {
-      /* We can always use the status listener hook and perhaps the notification
-       * hook if we are running eclaire or higher and the notification hook
-       * is installed.  We can only do this on eclaire or higher because it
-       * wasn't until eclaire that they fixed a bug where they didn't maintain
-       * a wakelock while the gps engine was on.
-       */
+            /* We can always use the status listener hook and perhaps the notification
+             * hook if we are running eclaire or higher and the notification hook
+             * is installed.  We can only do this on eclaire or higher because it
+             * wasn't until eclaire that they fixed a bug where they didn't maintain
+             * a wakelock while the gps engine was on.
+             */
             hookMethod = HOOK_GPS_STATUS_LISTENER;
             try {
                 if (NotificationService.available() &&
@@ -100,59 +101,62 @@ public class GPS extends PowerComponent {
                 Log.w(TAG, "Could not parse sdk version: " + Build.VERSION.SDK);
             }
         }
-    /* If we don't have a way of getting the off<->sleep transitions through
-     * notifications let's just use a timer and simulat the state of the gps
-     * instead.
-     */
+
+        /* If we don't have a way of getting the off<->sleep transitions through
+         * notifications let's just use a timer and simulat the state of the gps
+         * instead.
+         */
         if ((hookMethod & (HOOK_LIBGPS | HOOK_NOTIFICATIONS)) == 0) {
             hookMethod |= HOOK_TIMER;
         }
 
-    /* Create the object that keeps track of the physical GPS state. */
+        /* Create the object that keeps track of the physical GPS state. */
         gpsState = new GpsStateKeeper(hookMethod, sleepTime);
 
-    /* No matter what we are going to register a GpsStatus listener so that we
-     * can get the satellite count.  Also if anything goes wrong with the
-     * libgps hook we will revert to using this.
-     */
-        locationManager = (LocationManager)
-                context.getSystemService(Context.LOCATION_SERVICE);
+        /* No matter what we are going to register a GpsStatus listener so that we
+         * can get the satellite count.  Also if anything goes wrong with the
+         * libgps hook we will revert to using this.
+         */
+        //<editor-fold desc="GPS service">
+        locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+
         gpsListener = new GpsStatus.Listener() {
             public void onGpsStatusChanged(int event) {
+
                 if (event == GpsStatus.GPS_EVENT_STARTED) {
-                    gpsState.updateEvent(GPS_STATUS_SESSION_BEGIN,
-                            HOOK_GPS_STATUS_LISTENER);
+                    gpsState.updateEvent(GPS_STATUS_SESSION_BEGIN, HOOK_GPS_STATUS_LISTENER);
                 } else if (event == GpsStatus.GPS_EVENT_STOPPED) {
-                    gpsState.updateEvent(GPS_STATUS_SESSION_END,
-                            HOOK_GPS_STATUS_LISTENER);
+                    gpsState.updateEvent(GPS_STATUS_SESSION_END, HOOK_GPS_STATUS_LISTENER);
                 }
+
                 synchronized (GPS.this) {
                     lastStatus = locationManager.getGpsStatus(lastStatus);
                 }
             }
         };
+
         try {
             locationManager.addGpsStatusListener(gpsListener);
         } catch (SecurityException e) {
             e.printStackTrace();
             Log.e(TAG, "GPS: GPS permission not given");
         }
+        //</editor-fold>
 
-    /* No matter what we register a notification service listener as well so
-     * that we can get uid information if it's available.
-     */
+        /* No matter what we register a notification service listener as well so
+         * that we can get uid information if it's available.
+         */
+        //<editor-fold desc="Notification sercvice">
         if (hasUidInfo) {
             notificationReceiver = new NotificationService.DefaultReceiver() {
                 public void noteStartWakelock(int uid, String name, int type) {
-                    if (uid == SystemInfo.AID_SYSTEM &&
-                            "GpsLocationProvider".equals(name)) {
+                    if (uid == SystemInfo.AID_SYSTEM && "GpsLocationProvider".equals(name)) {
                         gpsState.updateEvent(GPS_STATUS_ENGINE_ON, HOOK_NOTIFICATIONS);
                     }
                 }
 
                 public void noteStopWakelock(int uid, String name, int type) {
-                    if (uid == SystemInfo.AID_SYSTEM &&
-                            "GpsLocationProvider".equals(name)) {
+                    if (uid == SystemInfo.AID_SYSTEM && "GpsLocationProvider".equals(name)) {
                         gpsState.updateEvent(GPS_STATUS_ENGINE_OFF, HOOK_NOTIFICATIONS);
                     }
                 }
@@ -165,12 +169,13 @@ public class GPS extends PowerComponent {
                     updateUidEvent(uid, GPS_STATUS_SESSION_END, HOOK_NOTIFICATIONS);
                 }
             };
+
             NotificationService.addHook(notificationReceiver);
         }
+        //</editor-fold>
 
         if (gpsStatusFile.exists()) {
-      /* Start a thread to read from the named pipe and feed us status updates.
-       */
+            // Start a thread to read from the named pipe and feed us status updates.
             statusThread = new Thread() {
                 public void run() {
                     try {
@@ -224,7 +229,7 @@ public class GPS extends PowerComponent {
     public IterationData calculateIteration(long iteration) {
         IterationData result = IterationData.obtain();
 
-    /* Get the number of satellites that were available in the last update. */
+        // Get the number of satellites that were available in the last update.
         int satellites = 0;
         synchronized (this) {
             if (lastStatus != null) {
@@ -234,7 +239,9 @@ public class GPS extends PowerComponent {
             }
         }
 
-    /* Get the power data for the physical gps device. */
+        //Log.d(TAG, "calculateIteration: Satellite numbers: " + satellites);
+
+        // Get the power data for the physical gps device.
         GpsData power = GpsData.obtain();
         synchronized (gpsState) {
             double[] stateTimes = gpsState.getStateTimesLocked();
@@ -244,28 +251,29 @@ public class GPS extends PowerComponent {
         }
         result.setPowerData(power);
 
-    /* Get the power data for each uid if we have information on it. */
-        if (hasUidInfo) synchronized (uidStates) {
-            lastTime = beginTime + iterationInterval * iteration;
-            for (int i = 0; i < uidStates.size(); i++) {
-                int uid = uidStates.keyAt(i);
-                GpsStateKeeper state = uidStates.valueAt(i);
+        // Get the power data for each uid if we have information on it.
+        if (hasUidInfo)
+            synchronized (uidStates) {
+                lastTime = beginTime + iterationInterval * iteration;
+                for (int i = 0; i < uidStates.size(); i++) {
+                    int uid = uidStates.keyAt(i);
+                    GpsStateKeeper state = uidStates.valueAt(i);
 
-                double[] stateTimes = state.getStateTimesLocked();
-                int curState = state.getCurrentStateLocked();
-                GpsData uidPower = GpsData.obtain();
-                uidPower.init(stateTimes, curState == POWER_STATE_ON ? satellites : 0);
-                state.resetTimesLocked();
+                    double[] stateTimes = state.getStateTimesLocked();
+                    int curState = state.getCurrentStateLocked();
+                    GpsData uidPower = GpsData.obtain();
+                    uidPower.init(stateTimes, curState == POWER_STATE_ON ? satellites : 0);
+                    state.resetTimesLocked();
 
-                result.addUidPowerData(uid, uidPower);
+                    result.addUidPowerData(uid, uidPower);
 
-        /* Remove state information for uids no longer using the gps. */
-                if (curState == POWER_STATE_OFF) {
-                    uidStates.remove(uid);
-                    i--;
+                    /* Remove state information for uids no longer using the gps. */
+                    if (curState == POWER_STATE_OFF) {
+                        uidStates.remove(uid);
+                        i--;
+                    }
                 }
             }
-        }
 
         return result;
     }

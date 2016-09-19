@@ -46,7 +46,7 @@ public class Wifi extends PowerComponent {
     private SystemInfo sysInfo;
     private long lastLinkSpeed;
     private int[] lastUids;
-    private WifiStateKeeper wifiState;
+    private WifiStateKeeper wifiStateAll;
     private SparseArray<WifiStateKeeper> uidStates;
     private String transPacketsFile;
     private String readPacketsFile;
@@ -68,7 +68,7 @@ public class Wifi extends PowerComponent {
             interfaceName = DEFUAULT_INTERFACE_NAME;
 
         lastLinkSpeed = -1;
-        wifiState = new WifiStateKeeper(phoneConstants.wifiHighLowTransition(),
+        wifiStateAll = new WifiStateKeeper(phoneConstants.wifiHighLowTransition(),
                 phoneConstants.wifiLowHighTransition());
         uidStates = new SparseArray<WifiStateKeeper>();
 
@@ -95,7 +95,7 @@ public class Wifi extends PowerComponent {
              * so that the next update it knows it's coming back from an off state.
              * We also need to clear all the uid information.
              */
-            wifiState.interfaceOff();
+            wifiStateAll.interfaceOff();
             uidStates.clear();
             lastLinkSpeed = -1;
 
@@ -128,88 +128,95 @@ public class Wifi extends PowerComponent {
         }
         double linkSpeed = lastLinkSpeed;
 
-        Log.d(TAG, "calculateIteration: linkSpeed:" + linkSpeed);
-
-        if (wifiState.isInitialized()) {
-            wifiState.updateState(transmitPackets, receivePackets, transmitBytes, receiveBytes);
+        if (wifiStateAll.isInitialized()) {
+            wifiStateAll.updateState(transmitPackets, receivePackets, transmitBytes, receiveBytes);
 
             WifiData data = WifiData.obtain();
-            data.init(wifiState.getPackets(), wifiState.getUplinkBytes(),
-                    wifiState.getDownlinkBytes(), wifiState.getUplinkRate(),
-                    linkSpeed, wifiState.getPowerState());
+            data.init(wifiStateAll.getPackets(), wifiStateAll.getUplinkBytes(),
+                    wifiStateAll.getDownlinkBytes(), wifiStateAll.getUplinkRate(),
+                    linkSpeed, wifiStateAll.getPowerState());
 
             result.setPowerData(data);
         } else {
             // Do initialization
-            wifiState.updateState(transmitPackets, receivePackets,
+            wifiStateAll.updateState(transmitPackets, receivePackets,
                     transmitBytes, receiveBytes);
         }
 
         lastUids = sysInfo.getUids(lastUids);
-        if (lastUids != null) for (int uid : lastUids) {
-            if (uid == -1) {
-                continue;
-            }
-            try {
-                WifiStateKeeper uidState = uidStates.get(uid);
-                if (uidState == null) {
-                    uidState = new WifiStateKeeper(phoneConstants.wifiHighLowTransition(),
-                            phoneConstants.wifiLowHighTransition());
-                    uidStates.put(uid, uidState);
-                }
-
-                if (!uidState.isStale()) {
-          /* We use a huerstic here so that we don't poll for uids that haven't
-           * had much activity recently.
-           */
+        if (lastUids != null) {
+            //Loop through each uid
+            for (int uid : lastUids) {
+                if (uid == -1) {
                     continue;
                 }
-
-        /* These read operations are the expensive part of polling. */
-                receiveBytes = sysInfo.readLongFromFile(
-                        "/proc/uid_stat/" + uid + "/tcp_rcv");
-                transmitBytes = sysInfo.readLongFromFile(
-                        "/proc/uid_stat/" + uid + "/tcp_snd");
-
-                if (receiveBytes == -1 || transmitBytes == -1) {
-                    Log.w(TAG, "Failed to read uid read/write byte counts");
-                } else if (uidState.isInitialized()) {
-          /* We only have information about bytes received but what we really
-           * want is the number of packets received so we just have to
-           * estimate it.
-           */
-                    long deltaTransmitBytes = transmitBytes - uidState.getTransmitBytes();
-                    long deltaReceiveBytes = receiveBytes - uidState.getReceiveBytes();
-                    long estimatedTransmitPackets = Math.round(deltaTransmitBytes /
-                            wifiState.getAverageTransmitPacketSize());
-                    long estimatedReceivePackets = Math.round(deltaReceiveBytes /
-                            wifiState.getAverageReceivePacketSize());
-                    if (deltaTransmitBytes > 0 && estimatedTransmitPackets == 0) {
-                        estimatedTransmitPackets = 1;
-                    }
-                    if (deltaReceiveBytes > 0 && estimatedReceivePackets == 0) {
-                        estimatedReceivePackets = 1;
+                try {
+                    WifiStateKeeper uidState = uidStates.get(uid);
+                    if (uidState == null) {
+                        // New UID
+                        uidState = new WifiStateKeeper(phoneConstants.wifiHighLowTransition(),
+                                phoneConstants.wifiLowHighTransition());
+                        uidStates.put(uid, uidState);
                     }
 
-                    boolean active = transmitBytes != uidState.getTransmitBytes() ||
-                            receiveBytes != uidState.getReceiveBytes();
-                    uidState.updateState(
-                            uidState.getTransmitPackets() + estimatedTransmitPackets,
-                            uidState.getReceivePackets() + estimatedReceivePackets,
-                            transmitBytes, receiveBytes);
-
-                    if (active) {
-                        WifiData uidData = WifiData.obtain();
-                        uidData.init(uidState.getPackets(), uidState.getUplinkBytes(),
-                                uidState.getDownlinkBytes(), uidState.getUplinkRate(),
-                                linkSpeed, uidState.getPowerState());
-                        result.addUidPowerData(uid, uidData);
+                    if (!uidState.isStale()) {
+                        /* We use a huerstic here so that we don't poll for uids that haven't
+                         * had much activity recently.
+                         */
+                        continue;
                     }
-                } else {
-                    uidState.updateState(0, 0, transmitBytes, receiveBytes);
+
+                    // These read operations are the expensive part of polling.
+                    receiveBytes = sysInfo.readLongFromFile("/proc/uid_stat/" + uid + "/tcp_rcv");
+                    transmitBytes = sysInfo.readLongFromFile("/proc/uid_stat/" + uid + "/tcp_snd");
+
+                    if (receiveBytes == -1 || transmitBytes == -1) {
+                        Log.w(TAG, "Failed to read uid read/write byte counts for UID: " + uid);
+                    } else if (uidState.isInitialized()) {
+                        /* Calculate the estimate number of packet exchanged by dividing
+                         * the exchange nubmer of bytes per the average packet size
+                         */
+                        long deltaTransmitBytes = transmitBytes - uidState.getTransmitBytes();
+                        long deltaReceiveBytes = receiveBytes - uidState.getReceiveBytes();
+                        long estimatedTransmitPackets = Math.round(deltaTransmitBytes /
+                                wifiStateAll.getAverageTransmitPacketSize());
+                        long estimatedReceivePackets = Math.round(deltaReceiveBytes /
+                                wifiStateAll.getAverageReceivePacketSize());
+
+                        if (deltaTransmitBytes > 0 && estimatedTransmitPackets == 0) {
+                            estimatedTransmitPackets = 1;
+                        }
+                        if (deltaReceiveBytes > 0 && estimatedReceivePackets == 0) {
+                            estimatedReceivePackets = 1;
+                        }
+
+                        boolean active = transmitBytes != uidState.getTransmitBytes() ||
+                                receiveBytes != uidState.getReceiveBytes();
+                        uidState.updateState(
+                                uidState.getTransmitPackets() + estimatedTransmitPackets,
+                                uidState.getReceivePackets() + estimatedReceivePackets,
+                                transmitBytes, receiveBytes);
+
+                        if (active) {
+                            WifiData uidData = WifiData.obtain();
+                            uidData.init(uidState.getPackets(), uidState.getUplinkBytes(),
+                                    uidState.getDownlinkBytes(), uidState.getUplinkRate(),
+                                    linkSpeed, uidState.getPowerState());
+                            result.addUidPowerData(uid, uidData);
+                        }
+
+                        if ((deltaReceiveBytes + deltaTransmitBytes) > 0)
+                            Log.i(TAG, "calculateIteration: UID: " + uid + " RX: " + deltaReceiveBytes +
+                                    "(" + estimatedReceivePackets + ") TX: " + deltaTransmitBytes +
+                                    "(" + estimatedTransmitPackets + ")");
+
+                    } else {
+                        //First time we encounter this UID
+                        uidState.updateState(0, 0, transmitBytes, receiveBytes);
+                    }
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Non-uid files in /proc/uid_stat");
                 }
-            } catch (NumberFormatException e) {
-                Log.w(TAG, "Non-uid files in /proc/uid_stat");
             }
         }
 
@@ -346,31 +353,35 @@ public class Wifi extends PowerComponent {
                 deltaUplinkBytes = transmitBytes - lastTransmitBytes;
                 deltaDownlinkBytes = receiveBytes - lastReceiveBytes;
 
+                //<editor-fold desc="Avg pkt size">
                 if (transmitPackets != lastTransmitPackets) {
+                    // Calculate the average number of bytes in packet sent
                     lastAverageTransmitPacketSize = 0.9 * lastAverageTransmitPacketSize +
-                            0.1 * (transmitBytes - lastTransmitBytes) /
-                                    (transmitPackets - lastTransmitPackets);
+                            0.1 * (transmitBytes - lastTransmitBytes) / (transmitPackets - lastTransmitPackets);
                 }
 
                 if (receivePackets != lastReceivePackets) {
+                    // Calculate the average number of bytes in packet received
                     lastAverageReceivePacketSize = 0.9 * lastAverageReceivePacketSize +
-                            0.1 * (receiveBytes - lastReceiveBytes) /
-                                    (receivePackets - lastReceivePackets);
+                            0.1 * (receiveBytes - lastReceiveBytes) / (receivePackets - lastReceivePackets);
                 }
+                //</editor-fold>
 
-                if (receiveBytes != lastReceiveBytes ||
-                        transmitBytes != lastTransmitBytes) {
+                // Update inactivity timer
+                if (receiveBytes != lastReceiveBytes || transmitBytes != lastTransmitBytes) {
                     inactiveTime = 0;
                 } else {
                     inactiveTime += curTime - lastTime;
                 }
 
+                // Update power state according to transition level
                 if (lastPackets < highLowTransition) {
                     powerState = POWER_STATE_LOW;
                 } else if (lastPackets > lowHighTransition) {
                     powerState = POWER_STATE_HIGH;
                 }
             }
+
             lastTime = curTime;
             lastTransmitPackets = transmitPackets;
             lastReceivePackets = receivePackets;

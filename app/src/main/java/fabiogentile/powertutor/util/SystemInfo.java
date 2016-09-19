@@ -390,7 +390,6 @@ public class SystemInfo {
      * Update the mapPidUsrSysTime hashmap
      */
     public static void updatePidUsrSysTimeMap() {
-        //Log.d(TAG, "updatePidUsrSysTimeMap: ");
         try {
 
             synchronized (suProcessSynch) {
@@ -399,18 +398,16 @@ public class SystemInfo {
                 if (!SystemInfo.isSuProcessAlive())
                     return;
 
-                //Exec the command as root to see all processes
-//                java.lang.Process process = Runtime.getRuntime().exec("su");
-//                DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
                 suProcessInput.writeBytes("for i in `ls /proc | /system/xbin/grep -E \"^[0-9]+\"`; " +
                         "do cat \"/proc/${i}/stat\" 2>/dev/null; " +
                         "done; echo " + COMMAND_TERMINATOR + "\n");
+
+//                suProcessInput.writeBytes("proc-cat; echo " + COMMAND_TERMINATOR + "\n");
                 suProcessInput.flush();
 
                 String line;
 
                 int usr, sys, pid, i = 0;
-                //String tmp = "";
                 while (true) {
                     try {
                         line = suProcessOutput.readLine();
@@ -418,33 +415,27 @@ public class SystemInfo {
                             break;
 
                         i++;
+
+                        //Log.v(TAG, "updatePidUsrSysTimeMap: " + line);
                         String[] token = line.split(" ");
 
                         pid = Integer.parseInt(token[0]);
                         usr = Integer.parseInt(token[13]); //utime
                         sys = Integer.parseInt(token[14]); //stime
 
-                        //tmp += " " + pid;
-                        // TODO: 15/09/16 controllare se pid esiste gia e modificare i valori 
                         long[] val = new long[2]; //I assume that max(INDEX_USER_TIME, INDEX_SYS_TIME) = 1
                         val[INDEX_USER_TIME] = usr;
                         val[INDEX_SYS_TIME] = sys;
 
-                        //Log.i(TAG, "updatePidUsrSysTimeMap: " + pid + " - " + usr + " - " + sys);
-
                         mapPidUsrSysTime.put(pid, val); //INDEX_USER_TIME e INDEX_SYS_TIME
+
+                        //Log.v(TAG, "updatePidUsrSysTimeMap: " + pid + " - " + usr + " - " + sys);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-
                 }
-                //Log.i(TAG, "updatePidUsrSysTimeMap: " + tmp);
-//                process.waitFor();
-//
-//                outputStream.close();
-//                bufferedReader.close();
 
-                //Log.i(TAG, "updatePidUsrSysTimeMap: updated[" + i + "]");
+                //Log.i(TAG, "updatePidUsrSysTimeMap: " + i);
             }
 
         } catch (IOException e) {
