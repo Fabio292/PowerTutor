@@ -205,10 +205,10 @@ public class Wifi extends PowerComponent {
                             result.addUidPowerData(uid, uidData);
                         }
 
-                        if ((deltaReceiveBytes + deltaTransmitBytes) > 0)
-                            Log.i(TAG, "calculateIteration: UID: " + uid + " RX: " + deltaReceiveBytes +
-                                    "(" + estimatedReceivePackets + ") TX: " + deltaTransmitBytes +
-                                    "(" + estimatedTransmitPackets + ")");
+//                        if ((deltaReceiveBytes + deltaTransmitBytes) > 0)
+//                            Log.i(TAG, "calculateIteration: UID: " + uid + " RX: " + deltaReceiveBytes +
+//                                    "(" + estimatedReceivePackets + ") TX: " + deltaTransmitBytes +
+//                                    "(" + estimatedTransmitPackets + ")");
 
                     } else {
                         //First time we encounter this UID
@@ -278,14 +278,14 @@ public class Wifi extends PowerComponent {
 
         public void writeLogDataInfo(OutputStreamWriter out) throws IOException {
             StringBuilder res = new StringBuilder();
-            res.append("Wifi-on ").append(wifiOn).append("\n");
+            res.append("Wifi+on+").append(wifiOn).append("\n");
             if (wifiOn) {
-                res.append("Wifi-packets ").append(Math.round(packets))
-                        .append("\nWifi-uplinkBytes ").append(uplinkBytes)
-                        .append("\nWifi-downlinkBytes ").append(downlinkBytes)
-                        .append("\nWifi-uplink ").append(Math.round(uplinkRate))
-                        .append("\nWifi-speed ").append(Math.round(linkSpeed))
-                        .append("\nWifi-state ").append(Wifi.POWER_STATE_NAMES[powerState])
+                res.append("Wifi+packets+").append(Math.round(packets))
+                        .append("\nWifi+uplinkBytes+").append(uplinkBytes)
+                        .append("\nWifi+downlinkBytes+").append(downlinkBytes)
+                        .append("\nWifi+uplink+").append(Math.round(uplinkRate))
+                        .append("\nWifi+speed+").append(Math.round(linkSpeed))
+                        .append("\nWifi+state+").append(Wifi.POWER_STATE_NAMES[powerState])
                         .append("\n");
             }
             out.write(res.toString());

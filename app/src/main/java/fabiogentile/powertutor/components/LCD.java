@@ -162,8 +162,8 @@ public class LCD extends PowerComponent {
 
         public void writeLogDataInfo(OutputStreamWriter out) throws IOException {
             StringBuilder res = new StringBuilder();
-            res.append("LCD-brightness ").append(brightness)
-                    .append("\nLCD-screen-on ").append(screenOn).append("\n");
+            res.append("LCD+brightness+").append(brightness)
+                    .append("\nLCD+screen-on+").append(screenOn).append("\n");
             out.write(res.toString());
         }
     }

@@ -109,9 +109,9 @@ public class UMLoggerService extends Service {
                 Bundle extra = intent.getExtras();
                 try {
                     if ((Boolean) extra.get("state"))
-                        powerEstimator.writeToLog("airplane-mode on\n");
+                        powerEstimator.writeToLog("airplane-mode+on\n");
                     else
-                        powerEstimator.writeToLog("airplane-mode off\n");
+                        powerEstimator.writeToLog("airplane-mode+off\n");
 
                 } catch (ClassCastException e) {
                     // Some people apparently are having this problem.
@@ -120,11 +120,11 @@ public class UMLoggerService extends Service {
             } else if (intent.getAction().equals(Intent.ACTION_BATTERY_LOW)) {
                 powerEstimator.writeToLog("battery low\n");
             } else if (intent.getAction().equals(Intent.ACTION_BATTERY_CHANGED)) {
-                powerEstimator.writeToLog("battery-change " +
-                        intent.getIntExtra("plugged", -1) + " " +
+                powerEstimator.writeToLog("battery-change+" +
+                        intent.getIntExtra("plugged", -1) + "+" +
                         intent.getIntExtra("level", -1) + "/" +
-                        intent.getIntExtra("scale", -1) + " " +
-                        intent.getIntExtra("voltage", -1) +
+                        intent.getIntExtra("scale", -1) + "+" +
+                        intent.getIntExtra("voltage", -1) + "+" +
                         intent.getIntExtra("temperature", -1) + "\n");
                 powerEstimator.plug(
                         intent.getIntExtra("plugged", -1) != 0);

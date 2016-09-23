@@ -25,9 +25,14 @@ import android.util.Log;
 
 import java.util.List;
 
+import fabiogentile.powertutor.components.CPU;
 import fabiogentile.powertutor.components.GPS;
+import fabiogentile.powertutor.components.LCD;
+import fabiogentile.powertutor.components.OLED;
 import fabiogentile.powertutor.components.PowerComponent;
+import fabiogentile.powertutor.components.Wifi;
 import fabiogentile.powertutor.service.PowerData;
+import fabiogentile.powertutor.util.SystemInfo;
 
 public class PhoneSelector {
     public static final int PHONE_UNKNOWN = 0;
@@ -36,6 +41,11 @@ public class PhoneSelector {
     public static final int PHONE_PASSION = 3; /* Nexus One */
     public static final int PHONE_HAMMERHEAD = 4; /* Nexus 5 */
     public static final int PHONE_ROYSS = 5; /* Samsung GT-S6310N */
+
+    public static final boolean ENABLE_LCD = true;
+    public static final boolean ENABLE_CPU = true;
+    public static final boolean ENABLE_WIFI = true;
+    public static final boolean ENABLE_GPS = false;
 
     /* A hard-coded list of phones that have OLED screens. */
     public static final String[] OLED_PHONES = {
@@ -136,42 +146,48 @@ public class PhoneSelector {
         //TODO: LED light on the Nexus
 
         /* Add display component. */
-//        if (hasOled()) {
-//            components.add(new OLED(context, constants));
-//            functions.add(new PowerFunction() {
-//                public double calculate(PowerData data) {
-//                    return calculator.getOledPower((OLED.OledData) data);
-//                }
-//            });
-//        } else {
-//            components.add(new LCD(context, constants));
-//            functions.add(new PowerFunction() {
-//                public double calculate(PowerData data) {
-//                    return calculator.getLcdPower((LCD.LcdData) data);
-//                }
-//            });
-//        }
+        if (ENABLE_LCD) {
+            if (hasOled()) {
+                components.add(new OLED(context, constants));
+                functions.add(new PowerFunction() {
+                    public double calculate(PowerData data) {
+                        return calculator.getOledPower((OLED.OledData) data);
+                    }
+                });
+            } else {
+                components.add(new LCD(context, constants));
+                functions.add(new PowerFunction() {
+                    public double calculate(PowerData data) {
+                        return calculator.getLcdPower((LCD.LcdData) data);
+                    }
+                });
+            }
+        }
 
         /* Add CPU component. */
-//        components.add(new CPU(constants));
-//        functions.add(new PowerFunction() {
-//            public double calculate(PowerData data) {
-//                return calculator.getCpuPower((CPU.CpuData) data);
-//            }
-//        });
+        if (ENABLE_CPU) {
+            components.add(new CPU(constants));
+            functions.add(new PowerFunction() {
+                public double calculate(PowerData data) {
+                    return calculator.getCpuPower((CPU.CpuData) data);
+                }
+            });
+        }
 
 
         /* Add Wifi component. */
-//        String wifiInterface =
-//                SystemInfo.getInstance().getProperty("wifi.interface");
-//        if (wifiInterface != null && wifiInterface.length() != 0) {
-//            components.add(new Wifi(context, constants));
-//            functions.add(new PowerFunction() {
-//                public double calculate(PowerData data) {
-//                    return calculator.getWifiPower((Wifi.WifiData) data);
-//                }
-//            });
-//        }
+        if (ENABLE_WIFI) {
+            String wifiInterface =
+                    SystemInfo.getInstance().getProperty("wifi.interface");
+            if (wifiInterface != null && wifiInterface.length() != 0) {
+                components.add(new Wifi(context, constants));
+                functions.add(new PowerFunction() {
+                    public double calculate(PowerData data) {
+                        return calculator.getWifiPower((Wifi.WifiData) data);
+                    }
+                });
+            }
+        }
 
 //        /* Add 3G component. */
 //        if (constants.threegInterface().length() != 0) {
@@ -184,12 +200,14 @@ public class PhoneSelector {
 //        }
 
 //        /* Add GPS component. */
-        components.add(new GPS(context, constants));
-        functions.add(new PowerFunction() {
-            public double calculate(PowerData data) {
-                return calculator.getGpsPower((GPS.GpsData) data);
-            }
-        });
+        if (ENABLE_GPS) {
+            components.add(new GPS(context, constants));
+            functions.add(new PowerFunction() {
+                public double calculate(PowerData data) {
+                    return calculator.getGpsPower((GPS.GpsData) data);
+                }
+            });
+        }
 
 //        /* Add Audio component. */
 //        components.add(new Audio(context));

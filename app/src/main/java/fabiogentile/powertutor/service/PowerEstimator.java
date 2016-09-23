@@ -280,7 +280,7 @@ public class PowerEstimator implements Runnable {
 
                                 if (!firstLogIteration && logStream != null && (appId == null || !appId.equals(newAppId))) {
                                     try {
-                                        logStream.write("associate " + uid + " " + newAppId + "\n");
+                                        logStream.write("associate+" + uid + "+" + newAppId + "\n");
                                     } catch (IOException e) {
                                         Log.w(TAG, "Failed to write to log file");
                                     }
@@ -328,36 +328,39 @@ public class PowerEstimator implements Runnable {
 //                PowerWidget.updateWidget(context, this);
 //            }
 
+            writeToLog("begin+" + iter + "\n");
+
             //<editor-fold desc="Log information">
             if (bst.hasCurrent()) {
                 double current = bst.getCurrent();
                 if (current != lastCurrent) { // If battery current drawn has changed
-                    writeToLog("batt_current " + current + "\n");
+                    writeToLog("batt_current+" +
+                            String.format(Locale.getDefault(), "%1$.2f", current * 1000) + "\n");
                     lastCurrent = current;
                 }
             }
             if (iter % (5 * 60) == 0) { // Every 300 iterations (5 minutes)
                 if (bst.hasTemp())
-                    writeToLog("batt_temp " + bst.getTemp() + "\n");
+                    writeToLog("batt_temp+" + bst.getTemp() + "\n");
                 if (bst.hasCharge())
-                    writeToLog("batt_charge " + bst.getCharge() + "\n");
+                    writeToLog("batt_charge+" + bst.getCharge() + "\n");
             }
             if (iter % (30 * 60) == 0) { // Every 1800 iterations (30 minutes)
                 if (Settings.System.getInt(context.getContentResolver(),
                         "screen_brightness_mode", 0) != 0) {
-                    writeToLog("setting_brightness automatic\n");
+                    writeToLog("setting_brightness+automatic\n");
                 } else {
                     int brightness = Settings.System.getInt(context.getContentResolver(),
                             Settings.System.SCREEN_BRIGHTNESS, -1);
                     if (brightness != -1) {
-                        writeToLog("setting_brightness " + brightness + "\n");
+                        writeToLog("setting_brightness+" + brightness + "\n");
                     }
                 }
                 int timeout = Settings.System.getInt(
                         context.getContentResolver(),
                         Settings.System.SCREEN_OFF_TIMEOUT, -1);
                 if (timeout != -1) {
-                    writeToLog("setting_screen_timeout " + timeout + "\n");
+                    writeToLog("setting_screen_timeout+" + timeout + "\n");
                 }
 
                 String httpProxy = Settings.Secure.getString(
@@ -384,33 +387,32 @@ public class PowerEstimator implements Runnable {
                             firstLogIteration = false;
                             logStream.write("time " + System.currentTimeMillis() + "\n");
                             Calendar cal = new GregorianCalendar();
-                            logStream.write("localtime_offset " +
+                            logStream.write("localtime_offset+" +
                                     (cal.get(Calendar.ZONE_OFFSET) +
                                             cal.get(Calendar.DST_OFFSET)) + "\n");
-                            logStream.write("model " + phoneConstants.modelName() + "\n");
+                            logStream.write("model+" + phoneConstants.modelName() + "\n");
 
                             if (NotificationService.available())
                                 logStream.write("notifications-active\n");
 
                             if (bst.hasFullCapacity())
-                                logStream.write("batt_full_capacity " + bst.getFullCapacity() + "\n");
+                                logStream.write("batt_full_capacity+" + bst.getFullCapacity() + "\n");
 
                             synchronized (uidAppIds) {
                                 for (int uid : uidAppIds.keySet()) {
                                     if (uid < SystemInfo.AID_APP) {
                                         continue;
                                     }
-                                    logStream.write("associate " + uid + " " + uidAppIds.get(uid) + "\n");
+                                    logStream.write("associate+" + uid + "+" + uidAppIds.get(uid) + "\n");
                                 }
                             }
                         }
 
-                        logStream.write("begin " + iter + "\n");
-                        logStream.write("total-power " + (long) Math.round(totalPower) + '\n');
+                        logStream.write("total power+" + (long) Math.round(totalPower) + '\n');
 
                         if (hasMem)
-                            logStream.write("meminfo " + memInfo[0] + " " + memInfo[1] +
-                                    " " + memInfo[2] + " " + memInfo[3] + "\n");
+                            logStream.write("meminfo+" + memInfo[0] + "+" + memInfo[1] +
+                                    "+" + memInfo[2] + "+" + memInfo[3] + "\n");
 
                         // Log information for every
                         for (int i = 0; i < componentsNumber; i++) {
@@ -427,11 +429,12 @@ public class PowerEstimator implements Runnable {
                                     PowerData powerData = uidData.valueAt(j);
 
                                     if (uid == SystemInfo.AID_ALL) {
-                                        logStream.write(name + "-ALL " + (long) Math.round(powerData.getCachedPower()) + "\n");
+                                        // Write log data for each component
                                         powerData.writeLogDataInfo(logStream);
+                                        logStream.write(name + "+ALL++" + (long) Math.round(powerData.getCachedPower()) + "\n");
                                     } else {
-                                        logStream.write(name + "-" + uid + " " + sysInfo.getUidName(uid, pm) +
-                                                " " + (long) Math.round(powerData.getCachedPower()) + "\n");
+                                        logStream.write(name + "+" + uid + "+" + sysInfo.getUidName(uid, pm) +
+                                                "+" + (long) Math.round(powerData.getCachedPower()) + "\n");
                                     }
                                 }
                                 data.recycle();
@@ -468,6 +471,7 @@ public class PowerEstimator implements Runnable {
                 synchronized (fileWriteLock) {
                     if (logStream != null)
                         try {
+                            logStream.write("------ END OF ITERATION ------\n");
                             logStream.flush();
                         } catch (Exception e) {
                             Log.w(TAG, "Failed to flush logfile: " + e);
