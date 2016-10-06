@@ -158,7 +158,6 @@ public class PowerEstimator implements Runnable {
 
         long[] memInfo = new long[4];
 
-        // TODO: 13/08/16 Check if this phone has OLED? don't think it's a great improvement
         int oledId = -1;
         for (int i = 0; i < componentsNumber; i++) {
             if ("OLED".equals(powerComponents.get(i).getComponentName())) {
@@ -231,8 +230,6 @@ public class PowerEstimator implements Runnable {
 //                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + sysInfo.getAppId(uid, pm) + " -> " + power);
 //                    else
 //                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
-
-                    // TODO: 27/08/16 capire come mai (111 - 95) time 0.08 0.15 [usermW > sysmW anche se userTime < sysTime]
 
                     powerData.setCachedPower(power);
                     compPower += power;
@@ -385,7 +382,8 @@ public class PowerEstimator implements Runnable {
                         if (firstLogIteration) {
                             Log.d(TAG, "run: FIRST LOG ITERATION");
                             firstLogIteration = false;
-                            logStream.write("time " + System.currentTimeMillis() + "\n");
+                            logStream.write("iteration_interval+" + ITERATION_INTERVAL + "\n");
+                            logStream.write("time+" + System.currentTimeMillis() + "\n");
                             Calendar cal = new GregorianCalendar();
                             logStream.write("localtime_offset+" +
                                     (cal.get(Calendar.ZONE_OFFSET) +

@@ -156,7 +156,7 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         if (!data.wifiOn) {
             return 0;
         } else if (data.powerState == Wifi.POWER_STATE_LOW) {
-            return coeffs.wifiLowPower();
+            return coeffs.wifiLowPower() * data.uploadPercent;
         } else if (data.powerState == Wifi.POWER_STATE_HIGH) {
             double[] linkSpeeds = coeffs.wifiLinkSpeeds();
             double[] linkRatios = coeffs.wifiLinkRatios();
@@ -177,7 +177,12 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
                         (linkSpeeds[ind] - linkSpeeds[ind - 1]) *
                         (data.linkSpeed - linkSpeeds[ind - 1]);
             }
-            return Math.max(0, coeffs.wifiHighPower() + ratio * data.uplinkRate);
+            double ret = Math.max(0, coeffs.wifiHighPower() + ratio * data.uplinkRate);
+
+            // Scale energy consumption basing on the percentage of data transmitted
+            ret *= data.uploadPercent;
+
+            return ret;
         }
         throw new RuntimeException("Unexpected power state");
     }

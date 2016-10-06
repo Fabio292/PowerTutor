@@ -38,6 +38,7 @@ import fabiogentile.powertutor.util.SystemInfo;
 public class Wifi extends PowerComponent {
     public static final int POWER_STATE_LOW = 0;
     public static final int POWER_STATE_HIGH = 1;
+    public static final int BYTE_PER_PACKET_OVERHEAD = 52;
     public static final String[] POWER_STATE_NAMES = {"LOW", "HIGH"};
     private static final String TAG = "Wifi";
     private final String DEFUAULT_INTERFACE_NAME = "wlan0";
@@ -52,8 +53,13 @@ public class Wifi extends PowerComponent {
     private String readPacketsFile;
     private String transBytesFile;
     private String readBytesFile;
+    private long prevTxBytes = 0;
+    private long prevRxBytes = 0;
+    private long prevTxPkt = 0;
+    private long prevRxPkt = 0;
     private File uidStatsFolder;
     private String BASE_WIFI_DIRECTORY = "/sys/class/net/"; // TODO: 11/08/16 spostare nella classe specifica del device e recuperare da constants
+
 
     public Wifi(Context context, PhoneConstants phoneConstants) {
         this.phoneConstants = phoneConstants;
@@ -105,42 +111,60 @@ public class Wifi extends PowerComponent {
             return result;
         }
 
-        long transmitPackets = sysInfo.readLongFromFile(transPacketsFile);
-        long receivePackets = sysInfo.readLongFromFile(readPacketsFile);
-        long transmitBytes = sysInfo.readLongFromFile(transBytesFile);
-        long receiveBytes = sysInfo.readLongFromFile(readBytesFile);
+        long totTransmitPackets = sysInfo.readLongFromFile(transPacketsFile);
+        long totReceivePackets = sysInfo.readLongFromFile(readPacketsFile);
+        long totTransmitBytes = sysInfo.readLongFromFile(transBytesFile);
+        long totReceiveBytes = sysInfo.readLongFromFile(readBytesFile);
 
-//        Log.v(TAG, "calculateIteration: txPkt:" + transmitPackets + " rxPkt:" + receivePackets
-//                    + " tkB:" + transmitBytes + " rxB:" + receiveBytes);
+        long deltaTxPkt = totTransmitPackets - this.prevTxPkt;
+        this.prevTxPkt = totTransmitPackets;
 
-        if (transmitPackets == -1 || receivePackets == -1 || transmitBytes == -1 || receiveBytes == -1) {
+        long deltaRxPkt = totReceivePackets - this.prevRxPkt;
+        this.prevRxPkt = totReceivePackets;
+
+        /**
+         * Correct the value of byte sent and received since the total value
+         * include also the overhead (52 byte per packet in TPC)
+         */
+        long deltaTxBytes = totTransmitBytes - this.prevTxBytes
+                - (deltaTxPkt * BYTE_PER_PACKET_OVERHEAD);
+        this.prevTxBytes = totTransmitBytes;
+
+        long deltaRxBytes = totReceiveBytes - this.prevRxBytes
+                - (deltaRxPkt * BYTE_PER_PACKET_OVERHEAD);
+        this.prevRxBytes = totReceiveBytes;
+
+        Log.d(TAG, "calculateIteration: deltaRX: " + deltaRxBytes + "(" +
+                deltaRxPkt + ") deltaTX: " + deltaTxBytes + "(" + deltaTxPkt + ")");
+
+        if (totTransmitPackets == -1 || totReceivePackets == -1 || totTransmitBytes == -1 || totReceiveBytes == -1) {
             /* Couldn't read interface data files. */
             Log.e(TAG, "Failed to read packet and byte counts from wifi interface");
             return result;
         }
 
-        /* Update the link speed every 15 seconds as pulling the WifiInfo structure
+        /* Update the link speed every 30 seconds as pulling the WifiInfo structure
          * from WifiManager is a little bit expensive.  This isn't really something
          * that is likely to change very frequently anyway.
          */
-        if (iteration % 15 == 0 || lastLinkSpeed == -1) {
+        if (iteration % 30 == 0 || lastLinkSpeed == -1) {
             lastLinkSpeed = wifiManager.getConnectionInfo().getLinkSpeed();
         }
         double linkSpeed = lastLinkSpeed;
 
         if (wifiStateAll.isInitialized()) {
-            wifiStateAll.updateState(transmitPackets, receivePackets, transmitBytes, receiveBytes);
+            wifiStateAll.updateState(totTransmitPackets, totReceivePackets, totTransmitBytes, totReceiveBytes);
 
             WifiData data = WifiData.obtain();
             data.init(wifiStateAll.getPackets(), wifiStateAll.getUplinkBytes(),
                     wifiStateAll.getDownlinkBytes(), wifiStateAll.getUplinkRate(),
-                    linkSpeed, wifiStateAll.getPowerState());
+                    linkSpeed, wifiStateAll.getPowerState(), 1.0, 1.0);
 
             result.setPowerData(data);
         } else {
             // Do initialization
-            wifiStateAll.updateState(transmitPackets, receivePackets,
-                    transmitBytes, receiveBytes);
+            wifiStateAll.updateState(totTransmitPackets, totReceivePackets,
+                    totTransmitBytes, totReceiveBytes);
         }
 
         lastUids = sysInfo.getUids(lastUids);
@@ -160,15 +184,16 @@ public class Wifi extends PowerComponent {
                     }
 
                     if (!uidState.isStale()) {
-                        /* We use a huerstic here so that we don't poll for uids that haven't
+                        /* We use a heuristic here so that we don't poll for uids that haven't
                          * had much activity recently.
                          */
                         continue;
                     }
 
                     // These read operations are the expensive part of polling.
-                    receiveBytes = sysInfo.readLongFromFile("/proc/uid_stat/" + uid + "/tcp_rcv");
-                    transmitBytes = sysInfo.readLongFromFile("/proc/uid_stat/" + uid + "/tcp_snd");
+                    long receiveBytes = sysInfo.readLongFromFile("/proc/uid_stat/" + uid + "/tcp_rcv");
+                    long transmitBytes = sysInfo.readLongFromFile("/proc/uid_stat/" + uid + "/tcp_snd");
+
 
                     if (receiveBytes == -1 || transmitBytes == -1) {
                         Log.w(TAG, "Failed to read uid read/write byte counts for UID: " + uid);
@@ -199,27 +224,32 @@ public class Wifi extends PowerComponent {
 
                         if (active) {
                             WifiData uidData = WifiData.obtain();
+                            double upPerc, downPerc;
+                            upPerc = ((double) deltaTransmitBytes / (double) deltaTxBytes);
+                            downPerc = ((double) deltaReceiveBytes / (double) deltaRxBytes);
+
                             uidData.init(uidState.getPackets(), uidState.getUplinkBytes(),
                                     uidState.getDownlinkBytes(), uidState.getUplinkRate(),
-                                    linkSpeed, uidState.getPowerState());
+                                    linkSpeed, uidState.getPowerState(),
+                                    upPerc, downPerc);
                             result.addUidPowerData(uid, uidData);
-                        }
 
-//                        if ((deltaReceiveBytes + deltaTransmitBytes) > 0)
-//                            Log.i(TAG, "calculateIteration: UID: " + uid + " RX: " + deltaReceiveBytes +
-//                                    "(" + estimatedReceivePackets + ") TX: " + deltaTransmitBytes +
-//                                    "(" + estimatedTransmitPackets + ")");
+                            if ((deltaReceiveBytes + deltaTransmitBytes) > 0)
+                                Log.d(TAG, "calculateIteration: UID: " + uid + " RX: " + deltaReceiveBytes +
+                                        "(" + downPerc + ") TX: " + deltaTransmitBytes +
+                                        "(" + upPerc + ")");
+                        }
 
                     } else {
                         //First time we encounter this UID
                         uidState.updateState(0, 0, transmitBytes, receiveBytes);
                     }
                 } catch (NumberFormatException e) {
-                    Log.w(TAG, "Non-uid files in /proc/uid_stat");
+                    Log.w(TAG, "Non-uid files in /proc/uid_stat!");
                 }
             }
         }
-
+        Log.d(TAG, "calculateIteration: ");
         return result;
     }
 
@@ -247,6 +277,15 @@ public class Wifi extends PowerComponent {
         public double linkSpeed;
         public int powerState;
 
+        /**
+         * Percentage of uploaded data wrt the total
+         */
+        public double uploadPercent;
+        /**
+         * Percentage of downloaded data wrt the total
+         */
+        public double downloadPercent;
+
         private WifiData() {
         }
 
@@ -262,7 +301,8 @@ public class Wifi extends PowerComponent {
         }
 
         public void init(double packets, long uplinkBytes, long downlinkBytes,
-                         double uplinkRate, double linkSpeed, int powerState) {
+                         double uplinkRate, double linkSpeed, int powerState,
+                         double upPerc, double downPerc) {
             wifiOn = true;
             this.packets = packets;
             this.uplinkBytes = uplinkBytes;
@@ -270,6 +310,9 @@ public class Wifi extends PowerComponent {
             this.uplinkRate = uplinkRate;
             this.linkSpeed = linkSpeed;
             this.powerState = powerState;
+
+            this.uploadPercent = upPerc;
+            this.downloadPercent = downPerc;
         }
 
         public void init() {
