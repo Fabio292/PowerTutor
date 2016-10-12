@@ -19,6 +19,9 @@ Please send inquiries to powertutor@umich.edu
 
 package fabiogentile.powertutor.phone;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+
 public interface PhoneConstants {
     /* Return the name of the model represented by these constants
      */
@@ -65,14 +68,22 @@ public interface PhoneConstants {
     /* Gives the coefficients at different cpu frequencies for the amount of
      * power/cpu utilization the processor is using.
      */
-    double[] cpuPowerRatios();
+    ArrayList<HashMap<Double, Double>> cpuPowerRatios();
 
     /* Gives the frequency for each of the power ratios listed in
      * cpuPowerRatios().
      */
     double[] cpuFreqs();
 
+    /**
+     * Base power consumption: idle+awake
+     */
     double cpuBase();
+
+    /**
+     * Available core number
+     */
+    int cpuCoreNumber();
     //</editor-fold>
 
     /* Gives the usage for the audio output being used.  The model doesn't

@@ -27,6 +27,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.text.MessageFormat;
+import java.util.Arrays;
 
 import fabiogentile.powertutor.phone.PhoneConstants;
 import fabiogentile.powertutor.service.IterationData;
@@ -36,8 +38,10 @@ import fabiogentile.powertutor.util.SystemInfo;
 
 public class CPU extends PowerComponent {
     private static final String TAG = "CPU";
-    private static final String CPU_FREQ_FILE = "/proc/cpuinfo";
+    private static final String CPU_FREQ_FILE_BACK = "/proc/cpuinfo";
     private static final String STAT_FILE = "/proc/stat";
+    private static final String CPU_FREQ_FILE =
+            "/sys/devices/system/cpu/cpu{0}/cpufreq/scaling_cur_freq";
     private CpuStateKeeper cpuStateAll;
     private SparseArray<CpuStateKeeper> pidStates;
     private SparseArray<CpuStateKeeper> uidLinks;
@@ -59,8 +63,8 @@ public class CPU extends PowerComponent {
         SystemInfo sysInfo = SystemInfo.getInstance();
 
         // Get current cpu freq
-        double freq = readCpuFreq(sysInfo);
-        if (freq < 0) {
+        double[] freqs = readCpuFreq(sysInfo);
+        if (freqs[0] < 0) {
             Log.w(TAG, "Failed to read cpu frequency");
             return result;
         }
@@ -85,7 +89,7 @@ public class CPU extends PowerComponent {
             // TODO: 24/08/16 0-100 -> 0-1, eventualmente correggere se cambiano le costanti
             userPercAll = cpuStateAll.getUsrPerc() / 100.0;
             sysPercAll = cpuStateAll.getSysPerc() / 100.0;
-            data.init(sysPercAll, userPercAll, freq);
+            data.init(sysPercAll, userPercAll, freqs);
             result.setPowerData(data);
         } else {
             Log.e(TAG, "calculateIteration: ???");
@@ -215,7 +219,7 @@ public class CPU extends PowerComponent {
 //            uidData.init(sysPerc, userPerc, freq);
 
             //uidData.init(sysPerc , userPerc , freq);
-            uidData.init(userPerc, sysPerc, freq);
+            uidData.init(userPerc, sysPerc, freqs);
 
 //            double sum = userPerc+sysPerc;
 //            if(sum > 0.0)
@@ -241,37 +245,37 @@ public class CPU extends PowerComponent {
     }
 
 
-    /**
-     * This is the function that is responsible for predicting the cpu frequency
-     * state of the individual uid as though it were the only thing running.  It
-     * simply is finding the lowest frequency that keeps the cpu usage under
-     * 70% assuming there is a linear relationship to the cpu utilization at
-     * different frequencies.
-     */
-    private void predictAppUidState(CpuData uidData, double usrPerc, double sysPerc, double freq) {
-        double[] freqs = constants.cpuFreqs();
-        if (usrPerc + sysPerc < 1e-6) {
-            /* Don't waste time with the binary search if there is no utilization
-             * which will be the case a lot.
-             */
-            uidData.init(sysPerc, usrPerc, freqs[0]);
-            return;
-        }
-        int lo = 0;
-        int hi = freqs.length - 1;
-        double perc = sysPerc + usrPerc;
-        while (lo < hi) {
-            int mid = (lo + hi) / 2;
-            double nperc = perc * freq / freqs[mid];
-            if (nperc < 70) {
-                hi = mid;
-            } else {
-                lo = mid + 1;
-            }
-        }
-        uidData.init(sysPerc * freq / freqs[lo], usrPerc * freq / freqs[lo],
-                freqs[lo]);
-    }
+//    /**
+//     * This is the function that is responsible for predicting the cpu frequency
+//     * state of the individual uid as though it were the only thing running.  It
+//     * simply is finding the lowest frequency that keeps the cpu usage under
+//     * 70% assuming there is a linear relationship to the cpu utilization at
+//     * different frequencies.
+//     */
+//    private void predictAppUidState(CpuData uidData, double usrPerc, double sysPerc, double freq) {
+//        double[] freqs = constants.cpuFreqs();
+//        if (usrPerc + sysPerc < 1e-6) {
+//            /* Don't waste time with the binary search if there is no utilization
+//             * which will be the case a lot.
+//             */
+//            uidData.init(sysPerc, usrPerc, freqs[0]);
+//            return;
+//        }
+//        int lo = 0;
+//        int hi = freqs.length - 1;
+//        double perc = sysPerc + usrPerc;
+//        while (lo < hi) {
+//            int mid = (lo + hi) / 2;
+//            double nperc = perc * freq / freqs[mid];
+//            if (nperc < 70) {
+//                hi = mid;
+//            } else {
+//                lo = mid + 1;
+//            }
+//        }
+//        uidData.init(sysPerc * freq / freqs[lo], usrPerc * freq / freqs[lo],
+//                freqs[lo]);
+//    }
 
     @Override
     public boolean hasUidInformation() {
@@ -287,48 +291,61 @@ public class CPU extends PowerComponent {
      * Returns the frequency of the processor in Mhz.  If the frequency cannot
      * be determined returns a negative value instead.
      * @param sysInfo
-     * @return current frequency in mhz
+     * @return array of frequency of all the cores
      */
-    private double readCpuFreq(SystemInfo sysInfo) {
+    private double[] readCpuFreq(SystemInfo sysInfo) {
         // TODO: 12/10/16 Leggere tutti i valori
         /* Try to read from the /sys/devices file first.  If that doesn't work
          * try manually inspecting the /proc/cpuinfo file.
          */
-        long cpuFreqKhz = sysInfo.readLongFromFile(
-                "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"); // TODO: 16/08/16 spostare nelle costanti?
-        if (cpuFreqKhz != -1) {
-            return cpuFreqKhz / 1000.0;
+        int core = constants.cpuCoreNumber();
+
+        double[] ret = new double[core];
+        Arrays.fill(ret, -1);
+
+        double cpuFreqKhz = 0;
+        for (int i = 0; i < core; i++) {
+            String fname = MessageFormat.format(CPU_FREQ_FILE, i);
+            cpuFreqKhz = sysInfo.readLongFromFile(fname);
+            if(cpuFreqKhz != -1)
+                cpuFreqKhz /= 1000.0;
+
+            ret[i] = cpuFreqKhz;
         }
 
-        FileReader fstream;
-        try {
-            fstream = new FileReader(CPU_FREQ_FILE);
-        } catch (FileNotFoundException e) {
-            Log.w(TAG, "Could not read cpu frequency file");
-            return -1;
-        }
-        BufferedReader in = new BufferedReader(fstream, 500);
-        String line;
-        try {
-            while ((line = in.readLine()) != null) {
-                if (line.startsWith("BogoMIPS")) {
-                    return Double.parseDouble(line.trim().split("[ :]+")[1]);
-                }
-            }
-        } catch (IOException e) {
-        /* Failed to read from the cpu freq file. */
-        } catch (NumberFormatException e) {
-        /* Frequency not formatted properly as a double. */
-        }
-        Log.w(TAG, "Failed to read cpu frequency");
-        return -1;
+        //ret[0] must exists because there is at least 1 core
+        if(ret[0] != -1)
+            return ret;
+
+//        FileReader fstream;
+//        try {
+//            fstream = new FileReader(CPU_FREQ_FILE_BACK);
+//        } catch (FileNotFoundException e) {
+//            Log.w(TAG, "Could not read cpu frequency file");
+//            return -1;
+//        }
+//        BufferedReader in = new BufferedReader(fstream, 500);
+//        String line;
+//        try {
+//            while ((line = in.readLine()) != null) {
+//                if (line.startsWith("BogoMIPS")) {
+//                    return Double.parseDouble(line.trim().split("[ :]+")[1]);
+//                }
+//            }
+//        } catch (IOException e) {
+//        /* Failed to read from the cpu freq file. */
+//        } catch (NumberFormatException e) {
+//        /* Frequency not formatted properly as a double. */
+//        }
+//        Log.w(TAG, "Failed to read cpu frequency");
+        return ret;
     }
 
     public static class CpuData extends PowerData {
         private static Recycler<CpuData> recycler = new Recycler<CpuData>();
         public double sysPerc;
         public double usrPerc;
-        public double freq;
+        public double[] freq;
         public boolean isUidAll = false;
 
         private CpuData() {
@@ -349,10 +366,12 @@ public class CPU extends PowerComponent {
             recycler.recycle(this);
         }
 
-        public void init(double sysPerc, double usrPerc, double freq) {
+        public void init(double sysPerc, double usrPerc, double[] pFreq) {
             this.sysPerc = sysPerc;
             this.usrPerc = usrPerc;
-            this.freq = freq;
+
+            this.freq = new double[pFreq.length];
+            System.arraycopy(pFreq, 0, this.freq, 0, pFreq.length);
         }
 
         public void writeLogDataInfo(OutputStreamWriter out) throws IOException {

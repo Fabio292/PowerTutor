@@ -23,6 +23,9 @@ import android.content.Context;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+
 import fabiogentile.powertutor.components.Sensors;
 
 /*
@@ -35,12 +38,18 @@ public class HammerheadConstants implements PhoneConstants {
     protected static final String OPER_ATT = "AT&T";
 
 
+    //<editor-fold desc="CPU">
     /**
-     * Values expressed for 100% cpu load
+     * Values expressed for 100% cpu load with all cores at the same freq
      */
-    private static final double[] arrayCpuPowerRatios = {205.2, 304, 395.2, 444.6, 516.8,
-            767.6, 813.2, 896.8, 1071.6, 1185.6,
-            1276.8, 1375.6, 1531.4, 1801.2};
+    private static final double[][] cpuPowerRatiosMatrix = {
+    {199.8, 288.6, 362.6, 407, 451.4, 621.6, 647.5, 691.9, 825.1, 917.6, 995.3, 1080.4, 1209.9, 1443}, //1 core
+    {344.1, 418.1, 510.6, 573.5, 651.2, 847.3, 899.1, 999, 1169.2, 1443, 1594.7, 1739, 2035, 2597.4}, // 2 core
+    {444, 529.1, 669.7, 747.4, 954.6, 1172.9, 1250.6, 1406, 1613.2, 1935.1, 2123.8, 2501.2, 2952.6, 3910.9}, // 3 core
+    {536.5, 651.2, 917.6, 1021.2, 1191.4, 1443, 1539.2, 1757.5, 2005.4, 2560.4, 2863.8, 3189.4, 3988.6, 5302.1} // 4 core
+    };
+
+    private static final int CORE_NUMBER = 4;
 
     //Freqs in MHz
     private static final double[] arrayCpuFreqs = {300.0, 422.4,
@@ -48,8 +57,15 @@ public class HammerheadConstants implements PhoneConstants {
             1036.8, 1190.4, 1267.2, 1497.6,
             1574.4, 1728.0, 1958.4, 2265.6};
 
+    /**
+     * List of maps of power consumption for CPU
+     */
+    public static ArrayList<HashMap<Double, Double>> cpuPowerList;
+    //</editor-fold>
+
     private static final double[] arrayGpsStatePower = {0.0, 173.55, 429.55};
 
+    //<editor-fold desc="WIFI">
     private static final double[] arrayWifiLinkRatios = {
             47.122645, 46.354821, 43.667437, 43.283525, 40.980053, 39.44422, 38.676581,
             34.069637, 29.462693, 20.248805, 11.034917, 6.427122
@@ -57,6 +73,8 @@ public class HammerheadConstants implements PhoneConstants {
     private static final double[] arrayWifiLinkSpeeds = {
             1, 2, 5.5, 6, 9, 11, 12, 18, 24, 36, 48, 54
     };
+    //</editor-fold>
+
 
     /* TODO: Figure out if this is really appropriate or how we should convert
      * the sensor power ratings (in mA) to mW.  I'm not sure we'll try to model
@@ -78,6 +96,25 @@ public class HammerheadConstants implements PhoneConstants {
                 sensorPowerArray[i] = sensor.getPower() * BATTERY_VOLTAGE;
             }
         }
+
+        //Populate cpu power hashmap
+        cpuPowerList = new ArrayList<HashMap<Double, Double>>(CORE_NUMBER);
+
+        // Iterate through cores
+        for (int i = 0; i < CORE_NUMBER; i++) {
+            HashMap<Double, Double> map = new HashMap<>(arrayCpuFreqs.length);
+
+            // Iterate throush frequencies
+            int j = 0;
+            for (double f: arrayCpuFreqs) {
+                map.put(f, cpuPowerRatiosMatrix[i][j]);
+                j++;
+            }
+
+            cpuPowerList.add(i, map);
+        }
+
+
     }
 
     public String modelName() {
@@ -101,7 +138,6 @@ public class HammerheadConstants implements PhoneConstants {
 
     public double lcdBacklight() {
         //screen.on
-        // TODO: 11/08/16 add cpu_base?
         return 306.175;
     }
     //</editor-fold>
@@ -124,8 +160,8 @@ public class HammerheadConstants implements PhoneConstants {
     //</editor-fold>
 
     //<editor-fold desc="CPU">
-    public double[] cpuPowerRatios() {
-        return arrayCpuPowerRatios;
+    public ArrayList<HashMap<Double, Double>> cpuPowerRatios() {
+        return cpuPowerList;
     }
 
     public double[] cpuFreqs() {
@@ -133,7 +169,11 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     public double cpuBase() {
-        return 64.38;
+        return 76.22;
+    }
+
+    public int cpuCoreNumber() {
+        return CORE_NUMBER;
     }
     //</editor-fold>
 
@@ -157,7 +197,7 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     public double wifiLowPower() {
-        return 38.554;
+        return 0;
     }
 
     public double wifiHighPower() {
@@ -244,8 +284,8 @@ public class HammerheadConstants implements PhoneConstants {
         if ("LCD".equals(componentName)) {
             return lcdBacklight() + lcdBrightness() * 255;
         } else if ("CPU".equals(componentName)) {
-            double[] ratios = cpuPowerRatios();
-            return ratios[ratios.length - 1];
+            ArrayList<HashMap<Double, Double>> ratios = cpuPowerRatios();
+            return ratios.get(ratios.size() - 1).get(arrayCpuFreqs[arrayCpuFreqs.length - 1]);
         } else if ("Audio".equals(componentName)) {
             return audioPower();
         } else if ("GPS".equals(componentName)) {

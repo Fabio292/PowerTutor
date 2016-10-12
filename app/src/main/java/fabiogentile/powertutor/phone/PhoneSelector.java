@@ -42,9 +42,9 @@ public class PhoneSelector {
     public static final int PHONE_HAMMERHEAD = 4; /* Nexus 5 */
     public static final int PHONE_ROYSS = 5; /* Samsung GT-S6310N */
 
-    public static final boolean ENABLE_LCD = true;
+    public static final boolean ENABLE_LCD = false;
     public static final boolean ENABLE_CPU = true;
-    public static final boolean ENABLE_WIFI = true;
+    public static final boolean ENABLE_WIFI = false;
     public static final boolean ENABLE_GPS = false;
 
     /* A hard-coded list of phones that have OLED screens. */
@@ -98,43 +98,25 @@ public class PhoneSelector {
 
     public static PhoneConstants getConstants(Context context) {
         switch (getPhoneType()) {
-            case PHONE_DREAM:
-                return new DreamConstants(context);
-            case PHONE_SAPPHIRE:
-                return new SapphireConstants(context);
-            case PHONE_PASSION:
-                return new PassionConstants(context);
             case PHONE_HAMMERHEAD:
                 return new HammerheadConstants(context);
-            case PHONE_ROYSS:
-                return new RoyssConstants(context);
             default:
                 boolean oled = hasOled();
-                Log.w(TAG, "Phone type not recognized (" + Build.DEVICE + "), using " +
-                        (oled ? "Passion" : "Dream") + " constants");
-                return oled ? new PassionConstants(context) :
-                        new DreamConstants(context);
+                Log.w(TAG, "Phone type not recognized (" + Build.DEVICE +
+                        "), using Hammerhead constants");
+                return new HammerheadConstants(context);
         }
     }
 
     public static PhonePowerCalculator getCalculator(Context context) {
         switch (getPhoneType()) {
-            case PHONE_DREAM:
-                return new DreamPowerCalculator(context);
-            case PHONE_SAPPHIRE:
-                return new SapphirePowerCalculator(context);
-            case PHONE_PASSION:
-                return new PassionPowerCalculator(context);
             case PHONE_HAMMERHEAD:
                 return new HammerheadPowerCalculator(context);
-            case PHONE_ROYSS:
-                return new RoyssPowerCalculator(context);
             default:
                 boolean oled = hasOled();
-                Log.w(TAG, "Phone type not recognized (" + Build.DEVICE + "), using " +
-                        (oled ? "Passion" : "Dream") + " calculator");
-                return oled ? new PassionPowerCalculator(context) :
-                        new DreamPowerCalculator(context);
+                Log.w(TAG, "Phone type not recognized (" + Build.DEVICE +
+                        "), using Hammerhead calculator");
+                return new HammerheadPowerCalculator(context);
         }
     }
 

@@ -22,6 +22,9 @@ package fabiogentile.powertutor.phone;
 import android.content.Context;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+
 import fabiogentile.powertutor.components.Audio.AudioData;
 import fabiogentile.powertutor.components.CPU.CpuData;
 import fabiogentile.powertutor.components.GPS;
@@ -39,8 +42,11 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
 
     private static final String TAG = "HammerheadPC";
     protected PhoneConstants coeffs;
-    private double[] powerRatios;
+    private ArrayList<HashMap<Double, Double>> powerRatios;
     private double[] freqs;
+
+    // Created only once in order to reduce allocation number
+    private HashMap<Double, Integer> freqCountMap = new HashMap<>();
 
     public HammerheadPowerCalculator(Context context) {
         this(new HammerheadConstants(context));
@@ -69,31 +75,6 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         return lo;
     }
 
-    public static double getTESTPower(CpuData data) {
-        final double[] arrayCpuPowerRatios = {214.23, 326.34,
-                368.52, 513.56, 553.52, 629.74,
-                659.71, 699.67, 858.77, 949.05,
-                985.68, 1064.49, 1205.09, 1428.94};
-        //Freqs in MHz
-        final double[] arrayCpuFreqs = {300.0, 422.4,
-                652.8, 729.6, 883.2, 960.0,
-                1036.8, 1190.4, 1267.2, 1497.6,
-                1574.4, 1728.0, 1958.4, 2265.6};
-        double ratio = arrayCpuPowerRatios[0];
-        double ret = 0;
-
-        for (int i = 0; i < arrayCpuFreqs.length; i++) {
-            if (arrayCpuFreqs[i] == data.freq) {
-                ratio = arrayCpuPowerRatios[i];
-                break;
-            }
-        }
-
-        ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
-
-        return ret;
-    }
-
     public double getLcdPower(LcdData data) {
         double ret = data.screenOn ?
                 coeffs.lcdBrightness() * data.brightness + coeffs.lcdBacklight() : 0;
@@ -108,35 +89,65 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     }
 
     public double getCpuPower(CpuData data) {
-        /* Find the two nearest cpu frequency and linearly interpolate
-         * the power ratio for that frequency.
+        /**     CPU POWER MODEL
+         *
+         * If the frequencies are all the same look at the matrix powerRatios
+         *
+         * Otherwise simply sum up the value for each frequency and subtract the
+         * Base power consumption
+         *
          */
-        double ratio = powerRatios[0];
-        double ret = 0;
-        boolean found = false;
 
-        // TODO: 16/08/16 HashMap?
-        for (int i = 0; i < freqs.length; i++) {
-            if (freqs[i] == data.freq) {
-                ratio = powerRatios[i];
-                found = true;
-                break;
+        this.freqCountMap.clear();
+        countFrequencies(data.freq, this.freqCountMap);
+
+        double fullPower = 0;
+        double ret;
+        int count;
+        int activeCores = 0;
+
+        for (Double f: this.freqCountMap.keySet()) {
+            if(f == -1)
+                continue;
+
+            count = this.freqCountMap.get(f);
+            activeCores += count;
+
+            if((count - 1) > powerRatios.size()){
+                Log.e(TAG, "getCpuPower: Requested count for core_number = " + count);
+                continue;
             }
-        }
+            HashMap<Double, Double> map = powerRatios.get(count - 1);
 
-        if (!found) {
-            Log.e(TAG, "getCpuPower: FREQ not found: " + data.freq);
-            ratio = powerRatios[0];
-        }
+            if(!map.containsKey(f)){
+                Log.e(TAG, "getCpuPower: Requested power for freq = " + f);
+                continue;
+            }
 
-        ret = Math.max(0, ratio * (data.usrPerc + data.sysPerc));
-
-        if (data.isUidAll) {
-            ret += coeffs.cpuBase(); //Add base cpu power for uid_ALL
-            //Log.i(TAG, "getCpuPower: " + ret);
+            fullPower += map.get(f);
         }
+        // Subtract cumulated base power
+        fullPower -= coeffs.cpuBase() * (activeCores - 1);
+        ret = Math.max(0, fullPower * (data.usrPerc + data.sysPerc));
+
+        // TODO: 12/10/16 uidALL needs another base power? 
+//        if (data.isUidAll) {
+//            ret += coeffs.cpuBase(); //Add base cpu power for uid_ALL
+//        }
 
         return ret;
+    }
+
+    private void countFrequencies(double[] freq, HashMap<Double, Integer> res){
+        for (double f: freq) {
+            if(res.containsKey(f)){
+                Integer val = res.get(f);
+                res.put(f, val+1);
+            }
+            else{
+                res.put(f, 1);
+            }
+        }
     }
 
     public double getAudioPower(AudioData data) {

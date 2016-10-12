@@ -112,7 +112,7 @@ public class ForegroundDetector {
             // Fill in the uids from appProcs.
             nowSize = 0;
             for (ActivityManager.RunningAppProcessInfo app : appProcs) {
-                Log.i(TAG, "getForegroundUid: " + app.processName + " ");
+                Log.v(TAG, "getForegroundUid: " + app.processName + " ");
                 if (app.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
                     int uid = sysInfo.getUidForPid(app.pid);
                     if (SystemInfo.AID_APP <= uid && uid < 1 << 16) {
@@ -155,7 +155,7 @@ public class ForegroundDetector {
                 }
             }
         }
-        Log.d(TAG, "getForegroundUid: " + appName + "(" + ret + ")");
+        Log.v(TAG, "getForegroundUid: " + appName + "(" + ret + ")");
         return ret;
     }
 }
