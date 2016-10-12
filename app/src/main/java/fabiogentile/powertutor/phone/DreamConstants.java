@@ -120,6 +120,11 @@ public class DreamConstants implements PhoneConstants {
         return 6.0;
     }
 
+    @Override
+    public double wifiOn() {
+        return 0;
+    }
+
     public double wifiLowPower() {
         return 38.554;
     }

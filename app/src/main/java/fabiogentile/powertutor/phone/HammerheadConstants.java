@@ -38,18 +38,15 @@ public class HammerheadConstants implements PhoneConstants {
     /**
      * Values expressed for 100% cpu load
      */
-    private static final double[] arrayCpuPowerRatios = {214.23, 326.34,
-            368.52, 513.56, 553.52, 629.74,
-            659.71, 699.67, 858.77, 949.05,
-            985.68, 1064.49, 1205.09, 1428.94};
+    private static final double[] arrayCpuPowerRatios = {205.2, 304, 395.2, 444.6, 516.8,
+            767.6, 813.2, 896.8, 1071.6, 1185.6,
+            1276.8, 1375.6, 1531.4, 1801.2};
+
     //Freqs in MHz
     private static final double[] arrayCpuFreqs = {300.0, 422.4,
             652.8, 729.6, 883.2, 960.0,
             1036.8, 1190.4, 1267.2, 1497.6,
             1574.4, 1728.0, 1958.4, 2265.6};
-
-    // TODO: 23/08/16 add base power?
-    private static final double cpuBaseCons = 64.38;
 
     private static final double[] arrayGpsStatePower = {0.0, 173.55, 429.55};
 
@@ -136,7 +133,7 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     public double cpuBase() {
-        return cpuBaseCons;
+        return 64.38;
     }
     //</editor-fold>
 
@@ -155,21 +152,25 @@ public class HammerheadConstants implements PhoneConstants {
     //</editor-fold>
 
     //<editor-fold desc="WIFI">
+    public double wifiOn() {
+        return 12.95;
+    }
+
     public double wifiLowPower() {
         return 38.554;
     }
 
     public double wifiHighPower() {
-        return 720;
+        return 271;
     }
 
     //PACKET PER SECONDS
     public double wifiLowHighTransition() {
-        return 15;
+        return 4;
     }
 
     public double wifiHighLowTransition() {
-        return 8;
+        return 4;
     }
 
     public double[] wifiLinkRatios() {

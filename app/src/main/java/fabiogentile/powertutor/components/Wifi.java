@@ -128,10 +128,14 @@ public class Wifi extends PowerComponent {
          */
         long deltaTxBytes = totTransmitBytes - this.prevTxBytes
                 - (deltaTxPkt * BYTE_PER_PACKET_OVERHEAD);
+        if(deltaTxBytes < 0)
+            deltaTxBytes = 0;
         this.prevTxBytes = totTransmitBytes;
 
         long deltaRxBytes = totReceiveBytes - this.prevRxBytes
                 - (deltaRxPkt * BYTE_PER_PACKET_OVERHEAD);
+        if (deltaRxBytes < 0)
+            deltaRxBytes = 0;
         this.prevRxBytes = totReceiveBytes;
 
         Log.d(TAG, "calculateIteration: deltaRX: " + deltaRxBytes + "(" +
@@ -170,6 +174,7 @@ public class Wifi extends PowerComponent {
         lastUids = sysInfo.getUids(lastUids);
         if (lastUids != null) {
             //Loop through each uid
+            // TODO: 06/10/16 Aggiungere un loop dove si conta la percentuale per ogni UID senza basarsi sui valori delta
             for (int uid : lastUids) {
                 if (uid == -1) {
                     continue;
@@ -225,8 +230,15 @@ public class Wifi extends PowerComponent {
                         if (active) {
                             WifiData uidData = WifiData.obtain();
                             double upPerc, downPerc;
-                            upPerc = ((double) deltaTransmitBytes / (double) deltaTxBytes);
-                            downPerc = ((double) deltaReceiveBytes / (double) deltaRxBytes);
+                            // TODO: 06/10/16 se i delta sono 0 ma ho dei valori in ritardo?
+                            if(deltaRxBytes == 0 || deltaTxBytes == 0){
+                                upPerc = 0;
+                                downPerc = 0;
+                            }
+                            else {
+                                upPerc = ((double) deltaTransmitBytes / (double) deltaTxBytes);
+                                downPerc = ((double) deltaReceiveBytes / (double) deltaRxBytes);
+                            }
 
                             uidData.init(uidState.getPackets(), uidState.getUplinkBytes(),
                                     uidState.getDownlinkBytes(), uidState.getUplinkRate(),

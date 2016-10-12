@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import fabiogentile.powertutor.service.PowerEstimator;
 
-// TODO: 18/08/16 Riutilizzare lo stesso processo se è possibile
 // TODO: 18/08/16 nelle hashMap facio un clear o una reinserzione?
 public class SystemInfo {
     /* Uids as listed in android_filesystem_config.h */

@@ -34,6 +34,7 @@ public interface PhoneConstants {
      */
     String backlightFile();
 
+    //<editor-fold desc="LCD">
     /* Gives the coefficient to multiply the LCD display's brightness by to
      * calculate power usage.
      */
@@ -43,7 +44,9 @@ public interface PhoneConstants {
      * just being turned on.
      */
     double lcdBacklight();
+    //</editor-fold>
 
+    //<editor-fold desc="OLED">
     /* Gives the base power usage for the OLED display for just being on.
      */
     double oledBasePower();
@@ -56,7 +59,9 @@ public interface PhoneConstants {
     /* Gives the modulation coefficient for the per pixel power calculation.
      */
     double oledModulation();
+    //</editor-fold>
 
+    //<editor-fold desc="CPU">
     /* Gives the coefficients at different cpu frequencies for the amount of
      * power/cpu utilization the processor is using.
      */
@@ -68,12 +73,14 @@ public interface PhoneConstants {
     double[] cpuFreqs();
 
     double cpuBase();
+    //</editor-fold>
 
     /* Gives the usage for the audio output being used.  The model doesn't
      * currently take into account volume.
      */
     double audioPower();
 
+    //<editor-fold desc="GPS">
     /* Gives the power consumption for each of the GPS states.  These states are
      * {OFF, SLEEP, ON} in that order.  See GPS.java.
      */
@@ -83,6 +90,15 @@ public interface PhoneConstants {
      * has ended.
      */
     double gpsSleepTime();
+    //</editor-fold>
+
+    //<editor-fold desc="WIFI">
+
+    /**
+     * Gives the base power consumption for wifi interface while it's on
+     * @return
+     */
+    double wifiOn();
 
     /* Gives the power consumption of wifi in the low power state.
      */
@@ -112,7 +128,9 @@ public interface PhoneConstants {
      * as wifiLinkRatios().
      */
     double[] wifiLinkSpeeds();
+    //</editor-fold>\
 
+    //<editor-fold desc="3G">
     /* Gives the name of the 3G interface for this phone.
      */
     String threegInterface();
@@ -146,6 +164,7 @@ public interface PhoneConstants {
      * state before transitioning to the IDLE state.
      */
     int threegFachIdleDelay(String oper);
+    //</editor-fold>
 
     /* Gives the power consumed by each of the sensors.  Should have the same size
      * as Sensors.MAX_SENSORS.

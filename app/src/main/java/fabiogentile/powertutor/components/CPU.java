@@ -199,7 +199,7 @@ public class CPU extends PowerComponent {
              * USER_HZ (oppure HZ oppure CLOCK_PER_SEC) che corrisponde alla frequenza del kernel
              * Il valore di default è 100, ma può succede che sia diverso in kernel custom
              *
-             * ATTENZIONE!!! Nel caso che il consumo dipenda dalla percentuale di carico piuttosto
+             * ATTENZIONE!!! Nel caso che il consumo dipenda dalla percentuale di carico
              * piuttosto che dal tempo di utilizzo bisogna modificare la riga sotto
              * andando a riempire con i valori in percentuale
              * TODO serve davvero convertire da jiffies a ms? se tutti i valori di timing sono in
@@ -290,6 +290,7 @@ public class CPU extends PowerComponent {
      * @return current frequency in mhz
      */
     private double readCpuFreq(SystemInfo sysInfo) {
+        // TODO: 12/10/16 Leggere tutti i valori
         /* Try to read from the /sys/devices file first.  If that doesn't work
          * try manually inspecting the /proc/cpuinfo file.
          */

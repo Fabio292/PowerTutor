@@ -153,38 +153,43 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     }
 
     public double getWifiPower(WifiData data) {
+        double ret;
         if (!data.wifiOn) {
             return 0;
         } else if (data.powerState == Wifi.POWER_STATE_LOW) {
-            return coeffs.wifiLowPower() * data.uploadPercent;
-        } else if (data.powerState == Wifi.POWER_STATE_HIGH) {
-            double[] linkSpeeds = coeffs.wifiLinkSpeeds();
-            double[] linkRatios = coeffs.wifiLinkRatios();
-            double ratio;
-            if (linkSpeeds.length == 1) {
-                /* If there is only one set speed we have to use its ratio as we have
-                 * nothing else to go on.
-                 */
-                ratio = linkRatios[0];
-            } else {
-                /* Find the two nearest speed/ratio pairs and linearly interpolate
-                 * the ratio for this link speed.
-                 */
-                int ind = upperBound(linkSpeeds, data.linkSpeed);
-                if (ind == 0) ind++;
-                if (ind == linkSpeeds.length) ind--;
-                ratio = linkRatios[ind - 1] + (linkRatios[ind] - linkRatios[ind - 1]) /
-                        (linkSpeeds[ind] - linkSpeeds[ind - 1]) *
-                        (data.linkSpeed - linkSpeeds[ind - 1]);
-            }
-            double ret = Math.max(0, coeffs.wifiHighPower() + ratio * data.uplinkRate);
-
             // Scale energy consumption basing on the percentage of data transmitted
-            ret *= data.uploadPercent;
+            // Divide by 5 since the time slot is 200ms
+            ret = coeffs.wifiHighPower() / 5 * data.uploadPercent  ;
+        } else if (data.powerState == Wifi.POWER_STATE_HIGH) {
+//            double[] linkSpeeds = coeffs.wifiLinkSpeeds();
+//            double[] linkRatios = coeffs.wifiLinkRatios();
+//            double ratio;
+//            if (linkSpeeds.length == 1) {
+//                /* If there is only one set speed we have to use its ratio as we have
+//                 * nothing else to go on.
+//                 */
+//                ratio = linkRatios[0];
+//            } else {
+//                /* Find the two nearest speed/ratio pairs and linearly interpolate
+//                 * the ratio for this link speed.
+//                 */
+//                int ind = upperBound(linkSpeeds, data.linkSpeed);
+//                if (ind == 0) ind++;
+//                if (ind == linkSpeeds.length) ind--;
+//                ratio = linkRatios[ind - 1] + (linkRatios[ind] - linkRatios[ind - 1]) /
+//                        (linkSpeeds[ind] - linkSpeeds[ind - 1]) *
+//                        (data.linkSpeed - linkSpeeds[ind - 1]);
+//            }
+            // TODO: 12/10/16 add informations on link rate ?
+            ret = coeffs.wifiHighPower() * data.uploadPercent;
 
-            return ret;
         }
-        throw new RuntimeException("Unexpected power state");
+        else {
+            throw new RuntimeException("Unexpected power state");
+        }
+        //Add base power
+        ret += coeffs.wifiOn() * (data.uploadPercent + data.downloadPercent) / 2;
+        return ret;
     }
 
     public double getThreeGPower(ThreegData data) {
