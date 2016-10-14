@@ -54,8 +54,8 @@ import fabiogentile.powertutor.util.SystemInfo;
 
 public class PowerPie extends Activity {
     public static final int[] COLORS = new int[]{
-            Color.GREEN, Color.BLUE, Color.MAGENTA, Color.YELLOW,
-            Color.RED, Color.LTGRAY, Color.DKGRAY, Color.CYAN
+            Color.GREEN, Color.YELLOW, Color.MAGENTA, Color.CYAN,
+            Color.RED, Color.LTGRAY, Color.DKGRAY, Color.BLUE
     };
     private static final String TAG = "PowerPie";
     private static final int MENU_WINDOW = 0;

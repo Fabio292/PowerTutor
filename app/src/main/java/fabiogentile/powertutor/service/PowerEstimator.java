@@ -73,7 +73,7 @@ public class PowerEstimator implements Runnable {
                     "in-serviceemergency-onlyout-of-servicepower-offdisconnectedconnecting" +
                     "associateconnectedsuspendedphone-callservicenetworkbegin.0123456789" +
                     "GPSAudioWifi3GLCDCPU-power ";
-    private static final int NOTIFICATION_UPDATE_INTERVAL = 15; //When update notification
+    private static final int NOTIFICATION_UPDATE_INTERVAL = 5; //When update notification
     private UMLoggerService context;
     private SharedPreferences prefs;
     private boolean plugged;
@@ -300,7 +300,7 @@ public class PowerEstimator implements Runnable {
                 int count = 0; // Number of history data not null
 
                 // Get info from all component for all UID
-                int[] history = getComponentHistory(5 * 60, -1, SystemInfo.AID_ALL, -1); // TODO: 13/08/16 5 * 60 ??
+                int[] history = getComponentHistory(NOTIFICATION_UPDATE_INTERVAL, -1, SystemInfo.AID_ALL, -1); // TODO: 13/08/16 5 * 60 ??
 
                 double weightedAvgPower = 0;
                 for (int i = history.length - 1; i >= 0; i--) {
@@ -317,6 +317,7 @@ public class PowerEstimator implements Runnable {
                 avgPower *= 1000;
                 int notificationLevel = (int) Math.min(8, 1 + 8 * avgPower / phoneConstants.maxPower());
                 context.updateNotification(notificationLevel, avgPower);
+//                context.updateNotification(0, totalPower);
             }
             //</editor-fold>
 
@@ -465,7 +466,7 @@ public class PowerEstimator implements Runnable {
             //</editor-fold>
 
             // TODO: 12/09/16 REMOVE IN PRODUCTION
-            if (iter % 1 == 0) { // Every 300 iterations (5 minutes)
+            if (iter % 60 == 0) { // Every 300 iterations (5 minutes)
                 synchronized (fileWriteLock) {
                     if (logStream != null)
                         try {

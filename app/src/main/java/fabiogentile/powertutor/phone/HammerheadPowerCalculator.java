@@ -104,14 +104,13 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         double fullPower = 0;
         double ret;
         int count;
-        int activeCores = 0;
+        int differentFreq = this.freqCountMap.keySet().size();
 
         for (Double f: this.freqCountMap.keySet()) {
             if(f == -1)
                 continue;
 
             count = this.freqCountMap.get(f);
-            activeCores += count;
 
             if((count - 1) > powerRatios.size()){
                 Log.e(TAG, "getCpuPower: Requested count for core_number = " + count);
@@ -127,7 +126,7 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
             fullPower += map.get(f);
         }
         // Subtract cumulated base power
-        fullPower -= coeffs.cpuBase() * (activeCores - 1);
+        fullPower -= coeffs.cpuBase() * (differentFreq - 1);
         ret = Math.max(0, fullPower * (data.usrPerc + data.sysPerc));
 
         // TODO: 12/10/16 uidALL needs another base power? 
