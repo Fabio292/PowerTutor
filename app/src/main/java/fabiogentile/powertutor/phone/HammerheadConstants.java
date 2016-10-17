@@ -43,24 +43,41 @@ public class HammerheadConstants implements PhoneConstants {
      * Values expressed for 100% cpu load with all cores at the same freq
      */
     private static final double[][] cpuPowerRatiosMatrix = {
-    {199.8, 288.6, 362.6, 407, 451.4, 621.6, 647.5, 691.9, 825.1, 917.6, 995.3, 1080.4, 1209.9, 1443}, //1 core
-    {344.1, 418.1, 510.6, 573.5, 651.2, 847.3, 899.1, 999, 1169.2, 1443, 1594.7, 1739, 2035, 2597.4}, // 2 core
-    {444, 529.1, 669.7, 747.4, 954.6, 1172.9, 1250.6, 1406, 1613.2, 1935.1, 2123.8, 2501.2, 2952.6, 3910.9}, // 3 core
-    {536.5, 651.2, 917.6, 1021.2, 1191.4, 1443, 1539.2, 1757.5, 2005.4, 2560.4, 2863.8, 3189.4, 3988.6, 5302.1} // 4 core
+    //300 422.4 652.8 729.6 883.2 960 1036.8
+            // 1190.4 1267.2 1497.6 1574.4 1728 1958.4 2265.6
+    {198.8, 288.6, 375.6, 425, 471.4, 655.6, 680.5,
+            735.9, 875.1, 976.6, 1055.3, 1145.4, 1279.9, 1529.6}, //1 core
+    {353, 441, 542.6, 611.3, 696.2, 914.3, 962.1,
+            1073.2, 1255.3, 1553.6, 1690.7, 1885, 2197, 2755.4}, // 2 core
+    {468, 565.1, 720.7, 808.4, 1015.6, 1267.9, 1339.6,
+            1535, 1755.2, 2093.1, 2301.8, 2701.2, 3225.6, 4332.9}, // 3 core
+    {577.5, 702.2, 996.6, 1102.2, 1212.4, 1574.9, 1687.3,
+            1948.5, 2210.4, 2973.4, 3143.8, 3587.1, 4432.6, 6197.1} // 4 core
     };
 
     private static final int CORE_NUMBER = 4;
 
     //Freqs in MHz
-    private static final double[] arrayCpuFreqs = {300.0, 422.4,
+    private static final double[] cpuFreqsArray = {300.0, 422.4,
             652.8, 729.6, 883.2, 960.0,
             1036.8, 1190.4, 1267.2, 1497.6,
             1574.4, 1728.0, 1958.4, 2265.6};
-
     /**
      * List of maps of power consumption for CPU
      */
     public static ArrayList<HashMap<Double, Double>> cpuPowerList;
+
+
+    /**
+     * Base power value that must be added according to the max freq. IFF there are at least
+     * 2 active cores
+     */
+    private static final double[] cpuBaseCorrectionArray = {0, 23.87,
+            66.5, 78.8, 100.6, 100.6,
+            260.7, 260.8, 260.7, 384.6,
+            390.2, 431.3, 431.3, 431.3};
+
+    public static HashMap<Double, Double> cpuBaseCorrectionMap;
     //</editor-fold>
 
     private static final double[] arrayGpsStatePower = {0.0, 173.55, 429.55};
@@ -99,21 +116,24 @@ public class HammerheadConstants implements PhoneConstants {
 
         //Populate cpu power hashmap
         cpuPowerList = new ArrayList<HashMap<Double, Double>>(CORE_NUMBER);
-
         // Iterate through cores
         for (int i = 0; i < CORE_NUMBER; i++) {
-            HashMap<Double, Double> map = new HashMap<>(arrayCpuFreqs.length);
+            HashMap<Double, Double> map = new HashMap<>(cpuFreqsArray.length);
 
-            // Iterate throush frequencies
+            // Iterate through frequencies
             int j = 0;
-            for (double f: arrayCpuFreqs) {
+            for (double f: cpuFreqsArray) {
                 map.put(f, cpuPowerRatiosMatrix[i][j]);
                 j++;
             }
-
             cpuPowerList.add(i, map);
         }
 
+        // Populate cpu base power correction map
+        cpuBaseCorrectionMap = new HashMap<>(cpuBaseCorrectionArray.length);
+        for (int i = 0; i < cpuBaseCorrectionArray.length; i++) {
+            cpuBaseCorrectionMap.put(cpuFreqsArray[i], cpuBaseCorrectionArray[i]);
+        }
 
     }
 
@@ -165,11 +185,15 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     public double[] cpuFreqs() {
-        return arrayCpuFreqs;
+        return cpuFreqsArray;
     }
 
     public double cpuBase() {
-        return 76.22;
+        return 61.26;
+    }
+
+    public HashMap<Double, Double> cpuBaseCorrection(){
+        return cpuBaseCorrectionMap;
     }
 
     public int cpuCoreNumber() {
@@ -285,7 +309,7 @@ public class HammerheadConstants implements PhoneConstants {
             return lcdBacklight() + lcdBrightness() * 255;
         } else if ("CPU".equals(componentName)) {
             ArrayList<HashMap<Double, Double>> ratios = cpuPowerRatios();
-            return ratios.get(ratios.size() - 1).get(arrayCpuFreqs[arrayCpuFreqs.length - 1]);
+            return ratios.get(ratios.size() - 1).get(cpuFreqsArray[cpuFreqsArray.length - 1]);
         } else if ("Audio".equals(componentName)) {
             return audioPower();
         } else if ("GPS".equals(componentName)) {

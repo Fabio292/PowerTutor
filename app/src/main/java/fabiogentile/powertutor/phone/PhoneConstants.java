@@ -81,6 +81,11 @@ public interface PhoneConstants {
     double cpuBase();
 
     /**
+     * Base power correction map
+     */
+    HashMap<Double, Double> cpuBaseCorrection();
+
+    /**
      * Available core number
      */
     int cpuCoreNumber();

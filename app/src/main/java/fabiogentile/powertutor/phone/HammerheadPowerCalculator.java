@@ -20,6 +20,7 @@ Please send inquiries to powertutor@umich.edu
 package fabiogentile.powertutor.phone;
 
 import android.content.Context;
+import android.content.pm.FeatureGroupInfo;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -43,9 +44,10 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     private static final String TAG = "HammerheadPC";
     protected PhoneConstants coeffs;
     private ArrayList<HashMap<Double, Double>> powerRatios;
-    private double[] freqs;
 
-    // Created only once in order to reduce allocation number
+    /**
+     * Store for the various frequency how many time they appear across all active cores
+     */
     private HashMap<Double, Integer> freqCountMap = new HashMap<>();
 
     public HammerheadPowerCalculator(Context context) {
@@ -55,7 +57,6 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
     protected HammerheadPowerCalculator(PhoneConstants coeffs) {
         this.coeffs = coeffs;
         this.powerRatios = coeffs.cpuPowerRatios();
-        this.freqs = coeffs.cpuFreqs();
     }
 
     /* Returns the largest index y such that if x were inserted into A (which
@@ -94,29 +95,33 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
          * If the frequencies are all the same look at the matrix powerRatios
          *
          * Otherwise simply sum up the value for each frequency and subtract the
-         * Base power consumption
+         * Base power consumption cumulated
+         *
+         * If there are more than 2 active cores, it can be necessary to adjust the base power cons.
          *
          */
 
         this.freqCountMap.clear();
-        countFrequencies(data.freq, this.freqCountMap);
+        double maxFreq = analyzeFrequencies(data.freq, this.freqCountMap);
 
         double fullPower = 0;
-        double ret;
-        int count;
+        double ret = 0;
+        int activeCores = 0;
         int differentFreq = this.freqCountMap.keySet().size();
 
         for (Double f: this.freqCountMap.keySet()) {
             if(f == -1)
                 continue;
 
-            count = this.freqCountMap.get(f);
+            int coresPerFreq = this.freqCountMap.get(f);
+            activeCores += coresPerFreq;
 
-            if((count - 1) > powerRatios.size()){
-                Log.e(TAG, "getCpuPower: Requested count for core_number = " + count);
+            if((coresPerFreq - 1) > powerRatios.size()){
+                Log.e(TAG, "getCpuPower: Requested count for core_number = " + coresPerFreq);
                 continue;
             }
-            HashMap<Double, Double> map = powerRatios.get(count - 1);
+
+            HashMap<Double, Double> map = powerRatios.get(coresPerFreq - 1);
 
             if(!map.containsKey(f)){
                 Log.e(TAG, "getCpuPower: Requested power for freq = " + f);
@@ -127,17 +132,27 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         }
         // Subtract cumulated base power
         fullPower -= coeffs.cpuBase() * (differentFreq - 1);
+
+        // Scale the resulting power according the cpu usage for the current UID
         ret = Math.max(0, fullPower * (data.usrPerc + data.sysPerc));
 
-        // TODO: 12/10/16 uidALL needs another base power? 
-//        if (data.isUidAll) {
-//            ret += coeffs.cpuBase(); //Add base cpu power for uid_ALL
-//        }
+        double correction;
+        // Add, if necessary, corrective factor to base power to the ALL uid
+        if(data.isUidAll &&  activeCores > 1){
+            correction = coeffs.cpuBaseCorrection().get(maxFreq);
+            ret = ret + correction;
+            Log.d(TAG, "getCpuPower: correction: " + correction);
+        }
 
         return ret;
     }
 
-    private void countFrequencies(double[] freq, HashMap<Double, Integer> res){
+    /**
+     * analyze the frequencies array by counting how much core are using same frequencies
+     * and find the max value used to correct base powe
+     */
+    private double analyzeFrequencies (double[] freq, HashMap<Double, Integer> res){
+        double ret = freq[0];
         for (double f: freq) {
             if(res.containsKey(f)){
                 Integer val = res.get(f);
@@ -147,6 +162,8 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
                 res.put(f, 1);
             }
         }
+
+        return ret;
     }
 
     public double getAudioPower(AudioData data) {
