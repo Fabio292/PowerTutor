@@ -119,7 +119,7 @@ public class UMLogger extends Activity {
                                     Toast.LENGTH_SHORT).show();
                         } else {
                             startService(serviceIntent);
-                            SystemInfo.startSuProcess();
+                            SystemInfo.startSuProcesses();
                         }
                     }
                 }

@@ -225,11 +225,14 @@ public class PowerEstimator implements Runnable {
                     int power = (int) powerFunctions.get(i).calculate(powerData);
 
                     powerData.setCachedPower(power);
-                    compPower += power;
+
                     //Add infromation to uid history
                     histories.get(i).add(uid, iter, power);
                     if (uid == SystemInfo.AID_ALL) {
                         totalPower += power;
+                    }
+                    else{
+                        compPower += power;
                     }
 //                    if (i == oledId) {
 //                        OLED.OledData oledData = (OLED.OledData) powerData;
@@ -238,13 +241,15 @@ public class PowerEstimator implements Runnable {
 //                        }
 //                    }
                 }
-//                String formattedTime = String.format(Locale.getDefault(), "%1$.2f", totTime);
-//                String formattedTimeAll = String.format(Locale.getDefault(), "%1$.2f", totTimeAll);
-//
-//                Log.d(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
-//                        " - " + totalPower + ") time " + formattedTime + " " + formattedTimeAll);
-                Log.d(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
-                        " - " + totalPower + ")");
+                String formattedTime = String.format(Locale.getDefault(), "%1$.2f", totTime);
+                String formattedTimeAll = String.format(Locale.getDefault(), "%1$.2f", totTimeAll);
+
+                if(comp.getComponentName().compareTo("CPU") == 0)
+                    Log.d(TAG, "run: [" + comp.getComponentName() + "] (COMP: " + compPower +
+                            " - TOT: " + totalPower + ") time proc: " + formattedTime + " ALL: " + formattedTimeAll);
+                else
+                    Log.d(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
+                            " - " + totalPower + ")");
             }
             //</editor-fold>
 
@@ -316,15 +321,12 @@ public class PowerEstimator implements Runnable {
             }
             //</editor-fold>
 
-            // Update the widget
-//            if (iter % 60 == 0) { // TODO: 13/08/16 remove widget?
-//                PowerWidget.updateWidget(context, this);
-//            }
-
             writeToLog("begin+" + iter + "\n");
 
-            //<editor-fold desc="Log information">
-            if (bst.hasCurrent()) {
+            //<editor-fold desc="Log Information">
+
+            //<editor-fold desc="HEADER">
+            if (bst.hasCurrent() && (iter % 60 == 0)) {
                 double current = bst.getCurrent();
                 if (current != lastCurrent) { // If battery current drawn has changed
                     writeToLog("batt_current+" +
@@ -363,6 +365,7 @@ public class PowerEstimator implements Runnable {
                     writeToLog("setting_httpproxy " + httpProxy + "\n");
                 }
             }
+            //</editor-fold>
 
             /* Let's only grab memory information every 10 seconds to try to keep log
              * file size down and the notice_data table size down.
@@ -372,6 +375,7 @@ public class PowerEstimator implements Runnable {
 //                hasMem = sysInfo.getMemInfo(memInfo);
 //            }
 
+            //<editor-fold desc="BODY">
             synchronized (fileWriteLock) {
                 if (logStream != null) {
                     try {
@@ -408,7 +412,7 @@ public class PowerEstimator implements Runnable {
                             logStream.write("meminfo+" + memInfo[0] + "+" + memInfo[1] +
                                     "+" + memInfo[2] + "+" + memInfo[3] + "\n");
 
-                        // Log information for every
+                        // Log information for every component
                         for (int i = 0; i < componentsNumber; i++) {
                             //Log.d(TAG, "run: Log for component " + i);
                             IterationData data = dataTemp[i];
@@ -434,38 +438,20 @@ public class PowerEstimator implements Runnable {
                                 data.recycle();
                             }
                         }
+                        logStream.write("------ END OF ITERATION ------\n");
                     } catch (IOException e) {
                         Log.w(TAG, "Failed to write to log file");
                     }
                 }
-
-                //Code upload part removed
-//                if (iter % 15 == 0 && prefs.getBoolean("sendPermission", true)) {
-//                    /* Allow for LogUploader to decide if the log needs to be uploaded and
-//                     * begin uploading if it decides it's necessary.
-//                     */
-//                    if (logUploader.shouldUpload()) {
-//                        try {
-//                            logStream.close();
-//                        } catch (IOException e) {
-//                            Log.w(TAG, "Failed to flush and close log stream");
-//                        }
-//                        logStream = null;
-//                        logUploader.upload(context.getFileStreamPath("PowerTrace.log").getAbsolutePath());
-//                        openLog(false);
-//                        firstLogIteration = true;
-//                    }
-//                }
-
             }
             //</editor-fold>
 
-            // TODO: 12/09/16 REMOVE IN PRODUCTION
-            if (iter % 60 == 0) { // Every 300 iterations (5 minutes)
+            //</editor-fold>
+
+            if (iter % 30 == 0) { // Every 300 iterations (5 minutes)
                 synchronized (fileWriteLock) {
                     if (logStream != null)
                         try {
-                            logStream.write("------ END OF ITERATION ------\n");
                             logStream.flush();
                         } catch (Exception e) {
                             Log.w(TAG, "Failed to flush logfile: " + e);

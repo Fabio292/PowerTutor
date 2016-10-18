@@ -42,9 +42,9 @@ public class PhoneSelector {
     public static final int PHONE_HAMMERHEAD = 4; /* Nexus 5 */
     public static final int PHONE_ROYSS = 5; /* Samsung GT-S6310N */
 
-    public static final boolean ENABLE_LCD = true;
+    public static final boolean ENABLE_LCD = false;
     public static final boolean ENABLE_CPU = true;
-    public static final boolean ENABLE_WIFI = true;
+    public static final boolean ENABLE_WIFI = false;
     public static final boolean ENABLE_GPS = false;
 
     /* A hard-coded list of phones that have OLED screens. */

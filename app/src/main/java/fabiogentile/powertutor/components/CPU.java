@@ -58,7 +58,16 @@ public class CPU extends PowerComponent {
     }
 
     @Override
-    public IterationData calculateIteration(long iteration) {
+    public IterationData calculateIteration(long iteration){
+
+        Thread updateMapThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                SystemInfo.updatePidUsrSysTimeMap();
+            }
+        });
+        updateMapThread.run();
+
         IterationData result = IterationData.obtain();
         SystemInfo sysInfo = SystemInfo.getInstance();
 
@@ -86,7 +95,6 @@ public class CPU extends PowerComponent {
 
         if (init) {
             CpuData data = CpuData.obtain();
-            // TODO: 24/08/16 0-100 -> 0-1, eventualmente correggere se cambiano le costanti
             userPercAll = cpuStateAll.getUsrPerc() / 100.0;
             sysPercAll = cpuStateAll.getSysPerc() / 100.0;
             data.init(sysPercAll, userPercAll, freqs);
@@ -98,10 +106,16 @@ public class CPU extends PowerComponent {
         uidLinks.clear();
         pids = sysInfo.getPids(pids);
         int pidInd = 0;
-        //double powerPid = 0.0, powerUid = 0.0;
+
+        try {
+            updateMapThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        int pidTime = 0;
         if (pids != null) {
 
-            //int err=0, ok=0;
             // Iterate through all pid
             for (int pid : pids) {
                 if (pid < 0)
@@ -129,25 +143,25 @@ public class CPU extends PowerComponent {
                     /* Nothing much is going on with this pid recently.  We'll just
                      * assume that it's not using any of the cpu for this iteration.
                      */
-                    //Log.i(TAG, "calculateIteration: Pid " + pid + " is stale (?)");
                     pidState.updateIteration(iteration, totalTime);
                 } else if (sysInfo.getPidUsrSysTime(pid, statsBuf)) {
                     usrTime = statsBuf[SystemInfo.INDEX_USER_TIME];
                     sysTime = statsBuf[SystemInfo.INDEX_SYS_TIME];
 
-                    init = pidState.isInitialized();
+//                    if(pidState.getUid() == 2000)
+//                    {
+//                        Log.i(TAG, "calculateIteration: pid=" + pid + " utime:" + usrTime
+//                            + " ktime: " + sysTime);
+//                    }
+
+//                    init = pidState.isInitialized();
                     pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
-//                    if ((pidState.deltaUsr + pidState.deltaSys) > 50)
-//                        Log.i(TAG, "calculateIteration: pid=" + pid + " U=" + pidState.deltaUsr + " S=" + pidState.deltaSys);
-                    //ok++;
+//                    if (!init) {
+//                        continue;
+//                    }
 
-                    if (!init) {
-                        continue;
-                    }
-//
 //                    CpuData tmp = new CpuData();
-//
 //                    // Value are in SYS_TICK
 //                    tmp.init(pidState.deltaSys / 100.0, pidState.deltaUsr / 100.0, freq);
 //                    double power = HammerheadPowerCalculator.getTESTPower(tmp);
@@ -155,11 +169,10 @@ public class CPU extends PowerComponent {
 //                    if (power > 0.0)
 //                        Log.i(TAG, "calculateIteration: pid=" + pid + " -> " +
 //                                String.format(Locale.getDefault(), "%1$.2f mW", power));
-
-                } /*else {
-                    //err++;
-                    Log.e(TAG, "calculateIteration: impossible to get time data for pid " + pid);
-                }*/
+                }
+                else{
+                    Log.w(TAG, "calculateIteration: error fetching cpu usage for " + pid);
+                }
 
 
                 // Merge different PID informations for the same UID
@@ -168,11 +181,13 @@ public class CPU extends PowerComponent {
                     uidLinks.put(pidState.getUid(), pidState);
                 } else {
                     linkState.absorb(pidState);
+
+                pidTime += pidState.deltaUsr + pidState.deltaSys;
                 }
             }
-            //Log.i(TAG, "calculateIteration: OK="+ ok + " ERR=" + err);
         }
 
+//        Log.i(TAG, "calculateIteration: totTime: " + (cpuStateAll.deltaSys + cpuStateAll.deltaUsr) + " pidTime: " + (pidTime));
 
         // Remove processes that are no longer active.
         int deleted = 0;
@@ -209,7 +224,6 @@ public class CPU extends PowerComponent {
              * TODO serve davvero convertire da jiffies a ms? se tutti i valori di timing sono in
              * jffies credo di no
              */
-            // TODO: 24/08/16 0-100 -> 0-1, eventualmente correggere se cambiano le costanti
             double userPerc = linkState.getUsrPerc() / 100.0;
             double sysPerc = linkState.getSysPerc() / 100.0;
             double sum = userPerc + sysPerc;
@@ -375,10 +389,16 @@ public class CPU extends PowerComponent {
         }
 
         public void writeLogDataInfo(OutputStreamWriter out) throws IOException {
+
+            StringBuilder freqString = new StringBuilder();
+            for (Double f: freq) {
+                freqString.append(f);
+            }
+
             StringBuilder res = new StringBuilder();
             res.append("CPU+sys+").append(Math.round(sysPerc * 100))
                     .append("\nCPU+usr+").append(Math.round(usrPerc * 100))
-                    .append("\nCPU+freq+").append(freq)
+                    .append("\nCPU+freq+").append(freqString)
                     .append("\n");
             out.write(res.toString());
         }
@@ -397,20 +417,22 @@ public class CPU extends PowerComponent {
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
-        private long deltaUsr;
+        public long deltaUsr;
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
-        private long deltaSys;
+        public long deltaSys;
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
-        private long deltaTotal;
+        public long deltaTotal;
 
         private CpuStateKeeper(int uid) {
             this.uid = uid;
-            lastUsr = lastSys = -1;
-            lastUpdateIteration = iteration = -1;
+//            lastUsr = lastSys = -1;
+//            lastUpdateIteration = iteration = -1;
+            lastUsr = lastSys = 0;
+            lastUpdateIteration = iteration = 0;
             inactiveIterations = 0;
         }
 
@@ -441,7 +463,7 @@ public class CPU extends PowerComponent {
             lastTotal = totalTime;
             lastUpdateIteration = this.iteration = iteration;
 
-            if (getUsrPerc() + getSysPerc() < 0.1) {
+            if (getUsrPerc() + getSysPerc() < 0.005) {
                 inactiveIterations++;
             } else {
                 inactiveIterations = 0;
@@ -469,7 +491,6 @@ public class CPU extends PowerComponent {
             return this.iteration == iteration;
         }
 
-        // TODO: 18/08/16 Capire il significato della funzione
         public boolean isStale(long iteration) {
             // if(2^DELTA_ITERATION > inactiveIteration^2)
             return 1L << (iteration - lastUpdateIteration) > inactiveIterations * inactiveIterations;

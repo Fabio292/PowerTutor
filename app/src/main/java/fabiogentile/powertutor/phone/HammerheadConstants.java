@@ -151,14 +151,14 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     //<editor-fold desc="LCD">
-    public double lcdBrightness() {
+    public double lcdBrightness(){
         //screen.full / 255
-        return 2.918792157;
+        return 3.8607;
     }
 
     public double lcdBacklight() {
         //screen.on
-        return 306.175;
+        return 274.1;
     }
     //</editor-fold>
 

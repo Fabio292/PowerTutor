@@ -157,19 +157,24 @@ public class SystemInfo {
 
     private static final int STARTUP_PROCESS_NUMBER = 240;  //Estimated process number at startup
     private static final String COMMAND_TERMINATOR = "--TERM--";
-    private static final Object suProcessSynch = new Object();
+    private static final Object suProcessPidUidSynch = new Object();
+    private static final Object suProcessTimeSynch = new Object();
     private static SystemInfo instance = new SystemInfo();
     private static ConcurrentHashMap<Integer, Integer> mapPidUid;
     private static ConcurrentHashMap<Integer, long[]> mapPidUsrSysTime;
     private static Context context;
     private static float pixelConversionScale = 1.0F;
-    private static java.lang.Process suProcess;
-    private static DataOutputStream suProcessInput;
-    private static BufferedReader suProcessOutput;
+    private static java.lang.Process suProcessPidUid;
+    private static DataOutputStream suProcessPidUidInput;
+    private static BufferedReader suProcessPidUidOutput;
+    private static java.lang.Process suProcessTime;
+    private static DataOutputStream suProcessTimeInput;
+    private static BufferedReader suProcessTimeOutput;
+
     SparseArray<UidCacheEntry> uidCache = new SparseArray<UidCacheEntry>();
     // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE?
     /* We are going to take advantage of the hidden API within Process.java that
-     * makes use of JNI so that we can perform the top task efficiently.
+     * makes use of JNI so that we can perform suProcessTimeOutput top task efficiently.
      */
     private Field fieldUid;
     private Method methodGetUidForPid;
@@ -186,11 +191,14 @@ public class SystemInfo {
     private SystemInfo() {
         Log.i(TAG, "SystemInfo: CREATO");
 
-        suProcess = null;
-        suProcessInput = null;
-        suProcessOutput = null;
+        suProcessPidUid = null;
+        suProcessPidUidInput = null;
+        suProcessPidUidOutput = null;
+        suProcessTime= null;
+        suProcessTimeInput = null;
+        suProcessTimeOutput = null;
 
-        startSuProcess();
+        startSuProcesses();
 
         //<editor-fold desc="REFLECTION">
         try {
@@ -240,14 +248,14 @@ public class SystemInfo {
             public void run() {
                 SystemInfo.updatePidUidMap();
             }
-        }, 0, 2 * PowerEstimator.ITERATION_INTERVAL);
-
-        new Timer().scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                SystemInfo.updatePidUsrSysTimeMap();
-            }
         }, 0, PowerEstimator.ITERATION_INTERVAL);
+
+//        new Timer().scheduleAtFixedRate(new TimerTask() {
+//            @Override
+//            public void run() {
+//                SystemInfo.updatePidUsrSysTimeMap();
+//            }
+//        }, 0, PowerEstimator.ITERATION_INTERVAL);
         //</editor-fold>
 
         Log.i(TAG, "SystemInfo: Timer created");
@@ -263,15 +271,27 @@ public class SystemInfo {
     /**
      * Start SU process
      */
-    public static void startSuProcess() {
+    public static void startSuProcesses() {
         try {
-            if (isSuProcessAlive())
+            if (isSuProcessPidUidAlive())
                 return;
-            suProcess = Runtime.getRuntime().exec("su");
-            //suProcess.waitFor();
-            suProcessInput = new DataOutputStream(suProcess.getOutputStream());
-            suProcessOutput = new BufferedReader(new InputStreamReader(suProcess.getInputStream()));
-            Log.i(TAG, "startSuProcess: SU started");
+            suProcessPidUid = Runtime.getRuntime().exec("su");
+            //suProcessPidUid.waitFor();
+            suProcessPidUidInput = new DataOutputStream(suProcessPidUid.getOutputStream());
+            suProcessPidUidOutput = new BufferedReader(new InputStreamReader(suProcessPidUid.getInputStream()));
+            Log.i(TAG, "startSuProcesses: SU(pu) started");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            if (isSuProcessTimeAlive())
+                return;
+            suProcessTime = Runtime.getRuntime().exec("su");
+            //suProcessPidUid.waitFor();
+            suProcessTimeInput = new DataOutputStream(suProcessTime.getOutputStream());
+            suProcessTimeOutput = new BufferedReader(new InputStreamReader(suProcessTime.getInputStream()));
+            Log.i(TAG, "startSuProcesses: SU(time) started");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -282,20 +302,41 @@ public class SystemInfo {
      */
     public static void stopSuProcess() {
         try {
-            synchronized (suProcessSynch) {
-                if (!isSuProcessAlive())
+            synchronized (suProcessPidUidSynch) {
+                if (!isSuProcessPidUidAlive())
                     return;
 
-                suProcessInput.writeBytes("exit\n");
-                suProcessInput.flush();
+                suProcessPidUidInput.writeBytes("exit\n");
+                suProcessPidUidInput.flush();
 
-                suProcess.waitFor();
-                suProcessInput.close();
-                suProcessOutput.close();
+                suProcessPidUid.waitFor();
+                suProcessPidUidInput.close();
+                suProcessPidUidOutput.close();
 
-                suProcess = null;
-                suProcessInput = null;
-                suProcessOutput = null;
+                suProcessPidUid = null;
+                suProcessPidUidInput = null;
+                suProcessPidUidOutput = null;
+                Log.i(TAG, "stopSuProcess: SU stopped");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            synchronized (suProcessTimeSynch) {
+                if (!isSuProcessTimeAlive())
+                    return;
+
+                suProcessTimeInput.writeBytes("exit\n");
+                suProcessTimeInput.flush();
+
+                suProcessTime.waitFor();
+                suProcessTimeInput.close();
+                suProcessTimeOutput.close();
+
+                suProcessTime = null;
+                suProcessTimeInput = null;
+                suProcessTimeOutput = null;
                 Log.i(TAG, "stopSuProcess: SU stopped");
             }
         } catch (Exception e) {
@@ -308,9 +349,19 @@ public class SystemInfo {
      *
      * @return true if is alive
      */
-    private static boolean isSuProcessAlive() {
-        return (suProcess != null) && (suProcessInput != null) && (suProcessOutput != null);
+    private static boolean isSuProcessPidUidAlive() {
+        return (suProcessPidUid != null) && (suProcessPidUidInput != null) && (suProcessPidUidOutput != null);
     }
+
+    /**
+     * Check if SU process is alive
+     *
+     * @return true if is alive
+     */
+    private static boolean isSuProcessTimeAlive() {
+        return (suProcessTime != null) && (suProcessTime != null) && (suProcessTime != null);
+    }
+
 
     // TODO: 27/08/16 spostare gli update in un servizio?
     /**
@@ -319,20 +370,20 @@ public class SystemInfo {
     public static void updatePidUidMap() {
         //Log.d(TAG, "updatePidUidMap: ");
         try {
-            synchronized (suProcessSynch) {
+            synchronized (suProcessPidUidSynch) {
                 mapPidUid.clear();
 
-                if (!SystemInfo.isSuProcessAlive())
+                if (!SystemInfo.isSuProcessPidUidAlive())
                     return;
 
-//                suProcessInput.writeBytes("echo $USER > /sdcard/BENCHMARK/test.abc\n");
-//                suProcessInput.flush();
+//                suProcessPidUidInput.writeBytes("echo $USER > /sdcard/BENCHMARK/test.abc\n");
+//                suProcessPidUidInput.flush();
 
                 //Exec the command as root to see all processes
                 //java.lang.Process process = Runtime.getRuntime().exec("su");
                 //DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
-                suProcessInput.writeBytes("/system/xbin/ps -o pid,user; echo " + COMMAND_TERMINATOR + "\n");
-                suProcessInput.flush();
+                suProcessPidUidInput.writeBytes("/system/xbin/ps -o pid,user; echo " + COMMAND_TERMINATOR + "\n");
+                suProcessPidUidInput.flush();
 
                 //BufferedReader bufferedReader = new BufferedReader(
                 //        new InputStreamReader(process.getInputStream()), 4096);
@@ -343,13 +394,13 @@ public class SystemInfo {
                 //Skip first line (header)
                 //String line = bufferedReader.readLine();
 
-                String line = suProcessOutput.readLine();
+                String line = suProcessPidUidOutput.readLine();
 
                 int pid, uid, i = 0;
 
                 while (true) {
                     try {
-                        line = suProcessOutput.readLine();
+                        line = suProcessPidUidOutput.readLine();
                         if (line == null || line.compareTo(COMMAND_TERMINATOR) == 0)
                             break;
 
@@ -373,7 +424,7 @@ public class SystemInfo {
                         e.printStackTrace();
                     }
                 }
-                //suProcess.waitFor();
+                //suProcessPidUid.waitFor();
                 //outputStream.close();
                 //bufferedReader.close();
 
@@ -391,25 +442,25 @@ public class SystemInfo {
     public static void updatePidUsrSysTimeMap() {
         try {
 
-            synchronized (suProcessSynch) {
+            synchronized (suProcessTimeSynch) {
                 mapPidUsrSysTime.clear();
 
-                if (!SystemInfo.isSuProcessAlive())
+                if (!SystemInfo.isSuProcessPidUidAlive())
                     return;
 
-                suProcessInput.writeBytes("for i in `ls /proc | /system/xbin/grep -E \"^[0-9]+\"`; " +
+                suProcessTimeInput.writeBytes("for i in `ls /proc | /system/xbin/grep -E \"^[0-9]+\"`; " +
                         "do cat \"/proc/${i}/stat\" 2>/dev/null; " +
                         "done; echo " + COMMAND_TERMINATOR + "\n");
 
-//                suProcessInput.writeBytes("proc-cat; echo " + COMMAND_TERMINATOR + "\n");
-                suProcessInput.flush();
+//                suProcessPidUidInput.writeBytes("proc-cat; echo " + COMMAND_TERMINATOR + "\n");
+                suProcessTimeInput.flush();
 
                 String line;
 
                 int usr, sys, pid, i = 0;
                 while (true) {
                     try {
-                        line = suProcessOutput.readLine();
+                        line = suProcessTimeOutput.readLine();
                         if (line == null || line.compareTo(COMMAND_TERMINATOR) == 0)
                             break;
 
