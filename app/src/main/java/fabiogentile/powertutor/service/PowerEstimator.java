@@ -224,13 +224,6 @@ public class PowerEstimator implements Runnable {
 
                     int power = (int) powerFunctions.get(i).calculate(powerData);
 
-                    //Log.i(TAG, "run: uid=" + uid + " power=" + power);
-
-//                    if(uid >= SystemInfo.AID_APP)
-//                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + sysInfo.getAppId(uid, pm) + " -> " + power);
-//                    else
-//                        Log.i(TAG, "run: [" + comp.getComponentName() + "] Uid:" + uid + " -> " + power);
-
                     powerData.setCachedPower(power);
                     compPower += power;
                     //Add infromation to uid history
@@ -238,18 +231,20 @@ public class PowerEstimator implements Runnable {
                     if (uid == SystemInfo.AID_ALL) {
                         totalPower += power;
                     }
-                    if (i == oledId) {
-                        OLED.OledData oledData = (OLED.OledData) powerData;
-                        if (oledData.pixPower >= 0) {
-                            oledScoreHistory.add(uid, iter, (int) (1000 * oledData.pixPower));
-                        }
-                    }
+//                    if (i == oledId) {
+//                        OLED.OledData oledData = (OLED.OledData) powerData;
+//                        if (oledData.pixPower >= 0) {
+//                            oledScoreHistory.add(uid, iter, (int) (1000 * oledData.pixPower));
+//                        }
+//                    }
                 }
-                String formattedTime = String.format(Locale.getDefault(), "%1$.2f", totTime);
-                String formattedTimeAll = String.format(Locale.getDefault(), "%1$.2f", totTimeAll);
-
+//                String formattedTime = String.format(Locale.getDefault(), "%1$.2f", totTime);
+//                String formattedTimeAll = String.format(Locale.getDefault(), "%1$.2f", totTimeAll);
+//
+//                Log.d(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
+//                        " - " + totalPower + ") time " + formattedTime + " " + formattedTimeAll);
                 Log.d(TAG, "run: [" + comp.getComponentName() + "] (" + compPower +
-                        " - " + totalPower + ") time " + formattedTime + " " + formattedTimeAll);
+                        " - " + totalPower + ")");
             }
             //</editor-fold>
 

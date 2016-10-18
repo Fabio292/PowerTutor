@@ -141,7 +141,7 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         if(data.isUidAll &&  activeCores > 1){
             correction = coeffs.cpuBaseCorrection().get(maxFreq);
             ret = ret + correction;
-            Log.d(TAG, "getCpuPower: correction: " + correction);
+            //Log.d(TAG, "getCpuPower: correction: " + correction);
         }
 
         return ret;
