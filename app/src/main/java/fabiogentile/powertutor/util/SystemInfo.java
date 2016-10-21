@@ -250,12 +250,12 @@ public class SystemInfo {
             }
         }, 0, PowerEstimator.ITERATION_INTERVAL);
 
-//        new Timer().scheduleAtFixedRate(new TimerTask() {
-//            @Override
-//            public void run() {
-//                SystemInfo.updatePidUsrSysTimeMap();
-//            }
-//        }, 0, PowerEstimator.ITERATION_INTERVAL);
+        new Timer().scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                SystemInfo.updatePidUsrSysTimeMap();
+            }
+        }, 0, PowerEstimator.ITERATION_INTERVAL);
         //</editor-fold>
 
         Log.i(TAG, "SystemInfo: Timer created");

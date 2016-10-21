@@ -60,13 +60,13 @@ public class CPU extends PowerComponent {
     @Override
     public IterationData calculateIteration(long iteration){
 
-        Thread updateMapThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                SystemInfo.updatePidUsrSysTimeMap();
-            }
-        });
-        updateMapThread.run();
+//        Thread updateMapThread = new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                SystemInfo.updatePidUsrSysTimeMap();
+//            }
+//        });
+//        updateMapThread.run();
 
         IterationData result = IterationData.obtain();
         SystemInfo sysInfo = SystemInfo.getInstance();
@@ -107,11 +107,11 @@ public class CPU extends PowerComponent {
         pids = sysInfo.getPids(pids);
         int pidInd = 0;
 
-        try {
-            updateMapThread.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            updateMapThread.join();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
 
         int pidTime = 0;
         if (pids != null) {
@@ -392,7 +392,7 @@ public class CPU extends PowerComponent {
 
             StringBuilder freqString = new StringBuilder();
             for (Double f: freq) {
-                freqString.append(f);
+                freqString.append(f).append("+");
             }
 
             StringBuilder res = new StringBuilder();
