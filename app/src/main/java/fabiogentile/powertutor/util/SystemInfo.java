@@ -171,6 +171,7 @@ public class SystemInfo {
     private static DataOutputStream suProcessTimeInput;
     private static BufferedReader suProcessTimeOutput;
 
+
     SparseArray<UidCacheEntry> uidCache = new SparseArray<UidCacheEntry>();
     // TODO: 12/08/16 sostituire con implementazioni, TOGLIERE RIFLESSIONE?
     /* We are going to take advantage of the hidden API within Process.java that
@@ -289,8 +290,10 @@ public class SystemInfo {
                 return;
             suProcessTime = Runtime.getRuntime().exec("su");
             //suProcessPidUid.waitFor();
-            suProcessTimeInput = new DataOutputStream(suProcessTime.getOutputStream());
-            suProcessTimeOutput = new BufferedReader(new InputStreamReader(suProcessTime.getInputStream()));
+            suProcessTimeInput = new DataOutputStream(
+                    suProcessTime.getOutputStream());
+            suProcessTimeOutput = new BufferedReader(
+                    new InputStreamReader(suProcessTime.getInputStream()));
             Log.i(TAG, "startSuProcesses: SU(time) started");
         } catch (IOException e) {
             e.printStackTrace();
@@ -359,7 +362,7 @@ public class SystemInfo {
      * @return true if is alive
      */
     private static boolean isSuProcessTimeAlive() {
-        return (suProcessTime != null) && (suProcessTime != null) && (suProcessTime != null);
+        return (suProcessTime != null) && (suProcessTimeInput != null) && (suProcessTimeOutput != null);
     }
 
 
@@ -376,24 +379,10 @@ public class SystemInfo {
                 if (!SystemInfo.isSuProcessPidUidAlive())
                     return;
 
-//                suProcessPidUidInput.writeBytes("echo $USER > /sdcard/BENCHMARK/test.abc\n");
-//                suProcessPidUidInput.flush();
-
-                //Exec the command as root to see all processes
-                //java.lang.Process process = Runtime.getRuntime().exec("su");
-                //DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
                 suProcessPidUidInput.writeBytes("/system/xbin/ps -o pid,user; echo " + COMMAND_TERMINATOR + "\n");
                 suProcessPidUidInput.flush();
 
-                //BufferedReader bufferedReader = new BufferedReader(
-                //        new InputStreamReader(process.getInputStream()), 4096);
-
-                //outputStream.writeBytes("exit\n");
-                //outputStream.flush();
-
-                //Skip first line (header)
-                //String line = bufferedReader.readLine();
-
+                // Skip first line
                 String line = suProcessPidUidOutput.readLine();
 
                 int pid, uid, i = 0;
@@ -532,6 +521,7 @@ public class SystemInfo {
         return false;
     }
 
+
     public void setContext(Context context) {
         SystemInfo.context = context;
         pixelConversionScale = context.getResources().getDisplayMetrics().density;
@@ -660,11 +650,14 @@ public class SystemInfo {
         return false;
     }
 
-    /* mem should contain 4 elements.  mem[INDEX_MEM_TOTAL] will contain total
+    /**
+     * mem should contain 4 elements.  mem[INDEX_MEM_TOTAL] will contain total
      * memory available in kb, mem[INDEX_MEM_FREE] will give the amount of free
      * memory in kb, mem[INDEX_MEM_BUFFERS] will give the size of kernel buffers
      * in kb, and mem[INDEX_MEM_CACHED] will give the size of kernel caches in kb.
      * Returns true on success.
+     * @param mem
+     * @return
      */
     public boolean getMemInfo(long[] mem) {
         if (methodReadProcFile == null) return false;

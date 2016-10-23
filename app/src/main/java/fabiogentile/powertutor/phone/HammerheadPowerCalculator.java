@@ -20,7 +20,6 @@ Please send inquiries to powertutor@umich.edu
 package fabiogentile.powertutor.phone;
 
 import android.content.Context;
-import android.content.pm.FeatureGroupInfo;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -137,7 +136,7 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         ret = Math.max(0, fullPower * (data.usrPerc + data.sysPerc));
 
         double correction;
-        // Add, if necessary, corrective factor to base power to the ALL uid
+        // Add, if necessary, add corrective factor to base power to the ALL uid
         if(data.isUidAll &&  activeCores > 1){
             correction = coeffs.cpuBaseCorrection().get(maxFreq);
             ret = ret + correction;

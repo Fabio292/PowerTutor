@@ -22,9 +22,6 @@ package fabiogentile.powertutor.components;
 import android.util.Log;
 import android.util.SparseArray;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.text.MessageFormat;
@@ -52,21 +49,13 @@ public class CPU extends PowerComponent {
     public CPU(PhoneConstants constants) {
         this.constants = constants;
         cpuStateAll = new CpuStateKeeper(SystemInfo.AID_ALL);
-        pidStates = new SparseArray<CpuStateKeeper>();
-        uidLinks = new SparseArray<CpuStateKeeper>();
+        pidStates = new SparseArray<>();
+        uidLinks = new SparseArray<>();
         statsBuf = new long[8];
     }
 
     @Override
     public IterationData calculateIteration(long iteration){
-
-//        Thread updateMapThread = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                SystemInfo.updatePidUsrSysTimeMap();
-//            }
-//        });
-//        updateMapThread.run();
 
         IterationData result = IterationData.obtain();
         SystemInfo sysInfo = SystemInfo.getInstance();
@@ -107,12 +96,6 @@ public class CPU extends PowerComponent {
         pids = sysInfo.getPids(pids);
         int pidInd = 0;
 
-//        try {
-//            updateMapThread.join();
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
         int pidTime = 0;
         if (pids != null) {
 
@@ -148,27 +131,8 @@ public class CPU extends PowerComponent {
                     usrTime = statsBuf[SystemInfo.INDEX_USER_TIME];
                     sysTime = statsBuf[SystemInfo.INDEX_SYS_TIME];
 
-//                    if(pidState.getUid() == 2000)
-//                    {
-//                        Log.i(TAG, "calculateIteration: pid=" + pid + " utime:" + usrTime
-//                            + " ktime: " + sysTime);
-//                    }
-
-//                    init = pidState.isInitialized();
                     pidState.updateState(usrTime, sysTime, totalTime, iteration);
 
-//                    if (!init) {
-//                        continue;
-//                    }
-
-//                    CpuData tmp = new CpuData();
-//                    // Value are in SYS_TICK
-//                    tmp.init(pidState.deltaSys / 100.0, pidState.deltaUsr / 100.0, freq);
-//                    double power = HammerheadPowerCalculator.getTESTPower(tmp);
-//                    powerPid += power;
-//                    if (power > 0.0)
-//                        Log.i(TAG, "calculateIteration: pid=" + pid + " -> " +
-//                                String.format(Locale.getDefault(), "%1$.2f mW", power));
                 }
                 else{
                     Log.w(TAG, "calculateIteration: error fetching cpu usage for " + pid);
@@ -209,9 +173,6 @@ public class CPU extends PowerComponent {
 
             compTime += linkState.deltaUsr + linkState.deltaSys;
 
-//            Log.i(TAG, "calculateIteration: uid=" + uid + " utime=" + linkState.deltaUsr + "(" + linkState.lastUsr
-//                + ") stime=" + linkState.deltaSys + "(" + linkState.lastSys + ")");
-
 
             /* Il valore che ricavo dal file /proc/[pid]/stat(14,15) è espresso in JIFFIES
              * Per ottenere un valore in secondi bisogna dividere la somma dei due valori per la costante
@@ -226,25 +187,8 @@ public class CPU extends PowerComponent {
              */
             double userPerc = linkState.getUsrPerc() / 100.0;
             double sysPerc = linkState.getSysPerc() / 100.0;
-            double sum = userPerc + sysPerc;
 
-//            if(sum > 0.0)
-//                Log.i(TAG, "calculateIteration: uid=" + uid + " " + sum + "%");
-//            uidData.init(sysPerc, userPerc, freq);
-
-            //uidData.init(sysPerc , userPerc , freq);
             uidData.init(userPerc, sysPerc, freqs);
-
-//            double sum = userPerc+sysPerc;
-//            if(sum > 0.0)
-//                Log.i(TAG, "calculateIteration: UID=" + uid + " " +
-//                        String.format(Locale.getDefault(), "%1$.1f", sum) + "%");
-//            double power = HammerheadPowerCalculator.getTESTPower(uidData);
-//            if(power > 0.0)
-//                Log.i(TAG, "calculateIteration: UID=" + uid + " " + power);
-
-            // Non sembra abbia un utilizzo reale sta funzione
-            //predictAppUidState(uidData, linkState.getUsrPerc(), linkState.getSysPerc(), freq);
 
             result.addUidPowerData(uid, uidData);
         }
@@ -258,38 +202,6 @@ public class CPU extends PowerComponent {
         return result;
     }
 
-
-//    /**
-//     * This is the function that is responsible for predicting the cpu frequency
-//     * state of the individual uid as though it were the only thing running.  It
-//     * simply is finding the lowest frequency that keeps the cpu usage under
-//     * 70% assuming there is a linear relationship to the cpu utilization at
-//     * different frequencies.
-//     */
-//    private void predictAppUidState(CpuData uidData, double usrPerc, double sysPerc, double freq) {
-//        double[] freqs = constants.cpuFreqs();
-//        if (usrPerc + sysPerc < 1e-6) {
-//            /* Don't waste time with the binary search if there is no utilization
-//             * which will be the case a lot.
-//             */
-//            uidData.init(sysPerc, usrPerc, freqs[0]);
-//            return;
-//        }
-//        int lo = 0;
-//        int hi = freqs.length - 1;
-//        double perc = sysPerc + usrPerc;
-//        while (lo < hi) {
-//            int mid = (lo + hi) / 2;
-//            double nperc = perc * freq / freqs[mid];
-//            if (nperc < 70) {
-//                hi = mid;
-//            } else {
-//                lo = mid + 1;
-//            }
-//        }
-//        uidData.init(sysPerc * freq / freqs[lo], usrPerc * freq / freqs[lo],
-//                freqs[lo]);
-//    }
 
     @Override
     public boolean hasUidInformation() {
@@ -308,10 +220,6 @@ public class CPU extends PowerComponent {
      * @return array of frequency of all the cores
      */
     private double[] readCpuFreq(SystemInfo sysInfo) {
-        // TODO: 12/10/16 Leggere tutti i valori
-        /* Try to read from the /sys/devices file first.  If that doesn't work
-         * try manually inspecting the /proc/cpuinfo file.
-         */
         int core = constants.cpuCoreNumber();
 
         double[] ret = new double[core];
@@ -327,31 +235,6 @@ public class CPU extends PowerComponent {
             ret[i] = cpuFreqKhz;
         }
 
-        //ret[0] must exists because there is at least 1 core
-        if(ret[0] != -1)
-            return ret;
-
-//        FileReader fstream;
-//        try {
-//            fstream = new FileReader(CPU_FREQ_FILE_BACK);
-//        } catch (FileNotFoundException e) {
-//            Log.w(TAG, "Could not read cpu frequency file");
-//            return -1;
-//        }
-//        BufferedReader in = new BufferedReader(fstream, 500);
-//        String line;
-//        try {
-//            while ((line = in.readLine()) != null) {
-//                if (line.startsWith("BogoMIPS")) {
-//                    return Double.parseDouble(line.trim().split("[ :]+")[1]);
-//                }
-//            }
-//        } catch (IOException e) {
-//        /* Failed to read from the cpu freq file. */
-//        } catch (NumberFormatException e) {
-//        /* Frequency not formatted properly as a double. */
-//        }
-//        Log.w(TAG, "Failed to read cpu frequency");
         return ret;
     }
 
@@ -405,15 +288,6 @@ public class CPU extends PowerComponent {
     }
 
     private static class CpuStateKeeper {
-        private int uid;
-        private long iteration;
-        private long lastUpdateIteration;
-        private long inactiveIterations;
-
-        private long lastUsr;
-        private long lastSys;
-        private long lastTotal;
-
         /**
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
@@ -426,11 +300,16 @@ public class CPU extends PowerComponent {
          * Delta value in SYS_TICK (usually 100Hz) from last iteration
          */
         public long deltaTotal;
+        private int uid;
+        private long iteration;
+        private long lastUpdateIteration;
+        private long inactiveIterations;
+        private long lastUsr;
+        private long lastSys;
+        private long lastTotal;
 
         private CpuStateKeeper(int uid) {
             this.uid = uid;
-//            lastUsr = lastSys = -1;
-//            lastUpdateIteration = iteration = -1;
             lastUsr = lastSys = 0;
             lastUpdateIteration = iteration = 0;
             inactiveIterations = 0;
