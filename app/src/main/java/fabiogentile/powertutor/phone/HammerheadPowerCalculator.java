@@ -127,16 +127,17 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
                 continue;
             }
 
+            // STEP 1: sum contribrutes from different frequency
             fullPower += map.get(f);
         }
-        // Subtract cumulated base power
+        // STEP 2: Subtract cumulated base power
         fullPower -= coeffs.cpuBase() * (differentFreq - 1);
 
-        // Scale the resulting power according the cpu usage for the current UID
+        // STEP 3: Scale the resulting power according the cpu usage for the current UID
         ret = Math.max(0, fullPower * (data.usrPerc + data.sysPerc));
 
         double correction;
-        // Add, if necessary, add corrective factor to base power to the ALL uid
+        // STEP 4: Add, if necessary, add corrective factor to base power to the ALL uid
         if(data.isUidAll &&  activeCores > 1){
             correction = coeffs.cpuBaseCorrection().get(maxFreq);
             ret = ret + correction;
