@@ -186,7 +186,7 @@ public class HammerheadPowerCalculator implements PhonePowerCalculator {
         } else if (data.powerState == Wifi.POWER_STATE_LOW) {
             // Scale energy consumption basing on the percentage of data transmitted
             // Divide by 5 since the time slot is 200ms
-            ret = coeffs.wifiHighPower() / 5 * data.uploadPercent  ;
+            ret = coeffs.wifiHighPower() / 2 * data.uploadPercent  ;
         } else if (data.powerState == Wifi.POWER_STATE_HIGH) {
 //            double[] linkSpeeds = coeffs.wifiLinkSpeeds();
 //            double[] linkRatios = coeffs.wifiLinkRatios();

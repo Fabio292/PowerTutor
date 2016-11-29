@@ -225,7 +225,7 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     public double wifiHighPower() {
-        return 271;
+        return 293;
     }
 
     //PACKET PER SECONDS
@@ -317,7 +317,7 @@ public class HammerheadConstants implements PhoneConstants {
             return gpsPow[gpsPow.length - 1];
         } else if ("Wifi".equals(componentName)) {
             // TODO: Get a better estimation going here.
-            return 800;
+            return wifiHighPower() + wifiOn() + 50;
         } else if ("3G".equals(componentName)) {
             return threegDchPower("");
         } else if ("Sensors".equals(componentName)) {
