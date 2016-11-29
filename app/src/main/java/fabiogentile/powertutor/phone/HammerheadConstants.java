@@ -157,8 +157,8 @@ public class HammerheadConstants implements PhoneConstants {
     }
 
     public double lcdBacklight() {
-        //screen.on
-        return 274.1;
+        //screen.on + GPU_base (Young Geun Kim et al. 2014)
+        return 274.1 + 90.8;
     }
     //</editor-fold>
 
